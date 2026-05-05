@@ -145,7 +145,7 @@ curl http://localhost:4647/health
 {
   "status": "ok",
   "loaded_models": ["qwen3.5-2b-ov"],
-  "registered_models": ["qwen3.5-2b-ov", "qwen2.5-1.5b-ov", "gemma4-2b-ov", "bge-m3"]
+  "registered_models": ["qwen3.5-2b-ov", "qwen2.5-1.5b-ov", "gemma4-2b-ov", "bge-m3-ov"]
 }
 ```
 
@@ -189,7 +189,7 @@ Configure these tools by pointing them to the local endpoint:
 
 - **API Base**: `http://localhost:4647/v1`
 - **API Key**: `sk-local-npu` (or whatever you set in `OPENVINO_API_KEY`)
-- **Models**: Use the names from your `models.yaml` (e.g., `qwen3.5-2b-ov`, `gemma4-2b-ov`)
+- **brain**: `qwen3.5-2b-ov` (or the name from your `models.yaml`)
 
 ---
 
@@ -371,10 +371,7 @@ curl http://localhost:4647/v1/embeddings \
 
 > 🌐 **Broad Model Support**: Any Hugging Face model exportable via `optimum-cli` works (Llama 3.2, Phi-3, Mistral, StarCoder2, etc.), not just the examples below.
 
-This service works with **any model exportable to OpenVINO IR** via `optimum-cli`.
-
 ### Prerequisites
-
 ```bash
 pip install -U "optimum[openvino]" nncf openvino-tokenizers
 ```
@@ -382,7 +379,7 @@ pip install -U "optimum[openvino]" nncf openvino-tokenizers
 ### ✅ Exact Export Commands (with `--output`)
 
 | Model | Command |
-| :--- | :--- |
+|-------|---------|
 | **Qwen 3.5 2B** | `optimum-cli export openvino --model Qwen/Qwen3-2B --weight-format int4 --trust-remote-code --task text-generation-with-past --output ./models/qwen3.5-2b-ov` |
 | **Qwen 2.5 1.5B** | `optimum-cli export openvino --model Qwen/Qwen2.5-1.5B-Instruct --weight-format int4 --trust-remote-code --task text-generation-with-past --output ./models/qwen2.5-1.5b-ov` |
 | **Gemma 4 2B** | `optimum-cli export openvino --model google/gemma-2-2b-it --weight-format int4 --trust-remote-code --task text-generation-with-past --output ./models/gemma4-2b-ov` |
@@ -390,7 +387,6 @@ pip install -U "optimum[openvino]" nncf openvino-tokenizers
 > 💡 **Tip**: The `--output ./models/<name>-ov` flag ensures paths match your `models.yaml` entries.
 
 ### 📋 Example `models.yaml` Entries (Updated Names)
-
 ```yaml
 models:
   - name: qwen3.5-2b-ov
@@ -538,7 +534,7 @@ for line in response.iter_lines():
 ## 🎯 OpenAI API Compatibility
 
 | Parameter | Supported | Notes |
-| :--- | :--- | :--- |
+|-----------|-----------|-------|
 | `model` | ✅ | Must match `name` in `models.yaml` (e.g., `qwen3.5-2b-ov`) |
 | `messages` / `prompt` | ✅ | Chat or completion format |
 | `stream` | ✅ | Enables SSE when `true` |
@@ -599,61 +595,26 @@ print(response.choices[0].message.content)  # Should work identically to OpenAI 
 
 ## 🔒 Model Manager Stability
 
-The model manager ensures reliable, thread-safe inference under concurrent load.
-
-### Concurrency Model
-
-- **Single Uvicorn worker** (`--workers 1`): Required to avoid NPU resource contention
-- **Per-model locking**: Each cached model has a `threading.Lock` to serialize inference calls
-- **Async wrapping**: Blocking OpenVINO calls are wrapped in `asyncio.to_thread()` to avoid event loop blocking
+### Concurrency & Memory
+- **Single worker required**: `--workers 1` prevents NPU resource contention
+- **Per-model locking**: Thread-safe inference via `threading.Lock` per cached model
+- **Async wrapping**: Blocking OpenVINO calls use `asyncio.to_thread()` to avoid event loop blocking
 
 ### Cache Behavior
-
 | Behavior | Details |
-| :--- | :--- |
-| **Lazy loading** | Models compile on first request, not at startup |
-| **In-memory cache** | Compiled pipelines stored in dict; no eviction (RAM-bound) |
-| **Warm-up** | Dummy inference (`generate("")`) runs post-compilation to initialize NPU kernels |
-| **Cache key** | Model name from `models.yaml` (case-sensitive) |
+|----------|---------|
+| Lazy loading | Models compile on first request, not at startup |
+| In-memory cache | Compiled pipelines stored in dict; no eviction |
+| Warm-up | Dummy inference runs post-compilation to initialize NPU kernels |
 
-### Memory Expectations
-
-| Model | INT4 Size | RAM Usage (Runtime) |
-| :--- | :--- | :--- |
-| Qwen 3.5 2B | ~1.2 GB | ~2.5 GB (weights + KV cache) |
+### Memory Expectations (INT4)
+| Model | Disk Size | Runtime RAM |
+|-------|-----------|-------------|
+| Qwen 3.5 2B | ~1.2 GB | ~2.5 GB |
 | Qwen 2.5 1.5B | ~0.9 GB | ~2.0 GB |
 | Gemma 4 2B | ~1.2 GB | ~2.5 GB |
 
-> 💡 **Tip**: Total RAM usage ≈ 2× model size due to KV cache and runtime overhead. Ensure 8 GB+ RAM for 2B models.
-
-### Failure Recovery
-
-| Scenario | Behavior |
-| :--- | :--- |
-| Model load fails | Returns `500 {"error": {"message": "Model load failed: ..."}}`; server continues running |
-| NPU unavailable at runtime | Returns `503 {"error": {"message": "NPU device busy or unavailable"}}` |
-| Concurrent requests to same model | Serialized via per-model lock; no corruption or race conditions |
-| Client disconnect mid-inference | Generation stops gracefully; no resource leak |
-
-### 🧪 Stability Test
-
-```bash
-# Concurrent requests to same model (should not crash)
-for i in {1..5}; do
-  curl -s -X POST http://localhost:4647/v1/chat/completions \
-    -H "Content-Type: application/json" \
-    -d '{"model":"qwen3.5-2b-ov","messages":[{"role":"user","content":"Test '$i'"}]}' &
-done
-wait
-echo "✓ All concurrent requests completed"
-```
-
-### ⚠️ Production Notes
-
-- **Do not scale workers**: `--workers > 1` may cause NPU contention or out-of-memory errors
-- **Monitor RAM**: Use `htop` or `psutil` to ensure sufficient headroom for KV cache growth
-- **Warm-up matters**: First request after server start will be slower (~2-5s) due to compilation + warm-up
-- **Model reload**: Changing `models.yaml` requires server restart (no hot-reload by design)
+> 💡 **Tip**: Total RAM ≈ 2× model size due to KV cache. Ensure 8 GB+ for 2B-class models.
 
 ---
 
