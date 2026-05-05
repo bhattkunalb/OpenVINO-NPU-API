@@ -31,6 +31,13 @@ class ModelEntry(BaseModel):
     def _uppercase_device(cls, v: str) -> str:
         return v.upper()
 
+    @field_validator("path")
+    @classmethod
+    def _validate_path(cls, v: str) -> str:
+        if not Path(v).exists():
+            log.warning("Model path '%s' does not exist yet (may be downloaded later).", v)
+        return v
+
     @model_validator(mode="after")
     def _validate_custom_fns(self) -> "ModelEntry":
         for attr in ("preprocess_fn", "postprocess_fn"):

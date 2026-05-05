@@ -28,6 +28,8 @@ from app.schemas import (
 log = logging.getLogger(__name__)
 router = APIRouter()
 
+STREAM_TYPE = "text/event-stream"
+
 _ERR = {
     400: {"model": ErrorResponse, "description": "Bad Request"},
     404: {"model": ErrorResponse, "description": "Not Found"},
@@ -40,7 +42,11 @@ _ERR = {
 async def health() -> dict:
     """Service health and model inventory."""
     mgr = get_manager()
-    return {"status": "ok", "loaded_models": mgr.list_loaded(), "registered_models": mgr.all_names()}
+    return {
+        "status": "ok",
+        "loaded_models": mgr.list_loaded(),
+        "registered_models": mgr.all_names(),
+    }
 
 
 @router.get("/v1/models", tags=["models"])
@@ -52,7 +58,9 @@ async def list_models() -> ModelListResponse:
 # Shared inference helper
 
 async def _infer(model: str, msg_dicts: list[dict], body: object) -> tuple:
-    """Run non-streaming generation for any endpoint. Returns (text, hit, load_ms, infer_ms, total_ms, cached)."""
+    """Run non-streaming generation for any endpoint. 
+    Returns (text, hit, load_ms, infer_ms, total_ms, cached).
+    """
     mgr = get_manager()
     t0 = time.perf_counter()
     stop = normalize_stop_strings(getattr(body, "stop", None))
@@ -84,13 +92,16 @@ async def chat_completions(body: ChatCompletionRequest) -> ChatCompletionRespons
     req_id = utils.new_request_id()
     if body.stream:
         return StreamingResponse(
-            _stream_chat(req_id, body), media_type="text/event-stream",
+            _stream_chat(req_id, body), media_type=STREAM_TYPE,
             headers={"X-Request-ID": req_id, "Cache-Control": "no-cache"},
         )
     msg_dicts = messages_to_dicts(body.messages)
     text, hit, load_ms, infer_ms, total_ms, cached = await _infer(body.model, msg_dicts, body)
     prompt = build_prompt_from_messages(msg_dicts)
-    utils.log_request(req_id, body.model, cached.entry.device, load_ms, infer_ms, total_ms, hit, "ok")
+    utils.log_request(
+        req_id, body.model, cached.entry.device, 
+        load_ms, infer_ms, total_ms, hit, "ok"
+    )
     return make_chat_response(body.model, text, prompt, req_id)
 
 
@@ -128,18 +139,36 @@ async def _stream_chat(
         "model": body.model,
         "choices": [{"index": 0, "delta": {"role": "assistant"}, "finish_reason": None}],
     })
+    
+    stop_manager = postprocess.StreamStopManager(stop)
     while True:
         token = await queue.get()
         if token is None:
             break
-        cleaned = postprocess.clean_generation(token)
+        
+        safe_token = stop_manager.process_token(token)
+        if safe_token:
+            cleaned = postprocess.clean_generation(safe_token)
+            if cleaned:
+                yield utils.make_stream_chunk(cid, body.model, cleaned)
+        
+        if stop_manager.stopped:
+            break
+            
+    final_text = stop_manager.flush()
+    if final_text:
+        cleaned = postprocess.clean_generation(final_text)
         if cleaned:
             yield utils.make_stream_chunk(cid, body.model, cleaned)
+            
     yield utils.make_stream_chunk(cid, body.model, "", finish_reason="stop")
     yield utils.SSE_DONE
 
     hit, load_ms, infer_ms, cached = await future
-    utils.log_request(req_id, body.model, cached.entry.device, load_ms, infer_ms, 0.0, hit, "ok-stream")
+    utils.log_request(
+        req_id, body.model, cached.entry.device, 
+        load_ms, infer_ms, 0.0, hit, "ok-stream"
+    )
 
 
 # /v1/completions
@@ -157,11 +186,14 @@ async def completions(body: CompletionRequest) -> CompletionResponse | Streaming
         )
         return StreamingResponse(
             _stream_chat(req_id, adapted, override_prompt=prompt),
-            media_type="text/event-stream",
+            media_type=STREAM_TYPE,
             headers={"X-Request-ID": req_id, "Cache-Control": "no-cache"},
         )
     text, hit, load_ms, infer_ms, total_ms, cached = await _infer(body.model, prompt, body)
-    utils.log_request(req_id, body.model, cached.entry.device, load_ms, infer_ms, total_ms, hit, "ok")
+    utils.log_request(
+        req_id, body.model, cached.entry.device, 
+        load_ms, infer_ms, total_ms, hit, "ok"
+    )
     return make_completion_response(body.model, text, prompt, req_id)
 
 
@@ -180,13 +212,16 @@ async def responses(body: ResponseRequest) -> ResponseObject | StreamingResponse
             top_p=body.top_p, stream=True,
         )
         return StreamingResponse(
-            _stream_chat(req_id, adapted), media_type="text/event-stream",
+            _stream_chat(req_id, adapted), media_type=STREAM_TYPE,
             headers={"X-Request-ID": req_id, "Cache-Control": "no-cache"},
         )
     msg_dicts = response_input_to_messages(body)
     text, hit, load_ms, infer_ms, total_ms, cached = await _infer(body.model, msg_dicts, body)
     prompt = build_prompt_from_messages(msg_dicts)
-    utils.log_request(req_id, body.model, cached.entry.device, load_ms, infer_ms, total_ms, hit, "ok")
+    utils.log_request(
+        req_id, body.model, cached.entry.device, 
+        load_ms, infer_ms, total_ms, hit, "ok"
+    )
     return make_response_object(body.model, text, prompt, req_id)
 
 
@@ -212,7 +247,10 @@ async def embeddings(body: EmbeddingRequest) -> EmbeddingResponse:
     vectors, hit, load_ms, infer_ms, cached = await asyncio.to_thread(_run)
     total_ms = (time.perf_counter() - t0) * 1000
     mgr.record_inference(body.model, infer_ms)
-    utils.log_request(req_id, body.model, cached.entry.device, load_ms, infer_ms, total_ms, hit, "ok")
+    utils.log_request(
+        req_id, body.model, cached.entry.device, 
+        load_ms, infer_ms, total_ms, hit, "ok"
+    )
     return make_embedding_response(body.model, vectors, inputs)
 
 
@@ -222,4 +260,6 @@ def _require_gen(model: str) -> None:
     if entry is None:
         raise HTTPException(404, f"Model '{model}' not found. Use GET /v1/models.")
     if entry.task == "embedding":
-        raise HTTPException(400, f"'{model}' is an embedding model. Use POST /v1/embeddings.")
+        raise HTTPException(
+            400, f"'{model}' is an embedding model. Use POST /v1/embeddings."
+        )

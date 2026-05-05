@@ -544,11 +544,9 @@ for line in response.iter_lines():
 | `messages` / `prompt` | ✅ | Chat or completion format |
 | `stream` | ✅ | Enables SSE when `true` |
 | `max_tokens` | ✅ | Approximate limit |
-| `temperature` | ⚠️ | Accepted but **ignored unless model pipeline enables sampling**. Set `do_sample: true` in custom `preprocess_fn` to enable. |
-| `stop` | ⚠️ | Accepted but **not enforced at API layer**. Implement in custom `postprocess_fn` if needed. |
+| `temperature` | ✅ | Natively supported. Auto-enables sampling if `> 0.0`. |
+| `stop` | ✅ | Natively supported. Enforced at the API layer for both batch and streaming requests. |
 | `usage` | ✅ | Returned with approximate token counts |
-
-> 💡 **Why are some params ignored?** OpenVINO GenAI pipelines may override generation config at compile time. For full control, use custom `preprocess_fn`/`postprocess_fn` hooks.
 
 ### 🔄 Response Schema (Guaranteed)
 

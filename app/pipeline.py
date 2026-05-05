@@ -22,10 +22,17 @@ def build_gen_config(
     """Construct an OV GenAI GenerationConfig from OpenAI-style params."""
     cfg = ov_genai.GenerationConfig()
     cfg.max_new_tokens = max_tokens
-    if temperature is not None:
+    
+    do_sample = False
+    if temperature is not None and temperature > 0.0:
         cfg.temperature = temperature
-    if top_p is not None:
+        do_sample = True
+    if top_p is not None and top_p < 1.0:
         cfg.top_p = top_p
+        do_sample = True
+        
+    cfg.do_sample = do_sample
+    
     if stop_strings:
         try:
             cfg.stop_strings = set(stop_strings)
@@ -47,6 +54,8 @@ def run_generation(
         result = cached.pipeline.generate(prompt, cfg)
     infer_ms = (time.perf_counter() - t0) * 1000
     text = postprocess.clean_generation(_to_str(result))
+    if stop_strings:
+        text = postprocess.enforce_stop_strings(text, stop_strings)
     return text, 0.0, infer_ms
 
 

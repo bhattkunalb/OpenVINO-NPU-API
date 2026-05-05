@@ -62,7 +62,7 @@ class ChatCompletionChoice(BaseModel):
 
 
 class ChatCompletionResponse(BaseModel):
-    """Response schema for the chat completions endpoint."""
+    """Full response schema for the chat completions endpoint."""
 
     id: str = Field(default_factory=lambda: f"chatcmpl-{uuid.uuid4().hex[:16]}")
     object: str = "chat.completion"
@@ -70,10 +70,11 @@ class ChatCompletionResponse(BaseModel):
     model: str
     choices: list[ChatCompletionChoice]
     usage: UsageInfo
+    system_fingerprint: str = "ov_genai_npu_v1"
 
 
 class CompletionRequest(BaseModel):
-    """Request schema for the text completion endpoint."""
+    """Request schema for the legacy text completions endpoint."""
 
     model: str
     prompt: str | list[str]
@@ -82,7 +83,6 @@ class CompletionRequest(BaseModel):
     top_p: float | None = Field(1.0, ge=0.0, le=1.0)
     stream: bool = False
     stop: str | list[str] | None = None
-    n: int = Field(1, ge=1, le=1)
 
 
 class CompletionChoice(BaseModel):
@@ -168,16 +168,16 @@ class EmbeddingResponse(BaseModel):
 
 
 class ModelCard(BaseModel):
-    """Metadata for a registered model, providing ID and creation info."""
+    """OpenAI-compatible model descriptor."""
 
     id: str
     object: str = "model"
     created: int = Field(default_factory=lambda: int(time.time()))
-    owned_by: str = "local"
+    owned_by: str = "ov_genai"
 
 
 class ModelListResponse(BaseModel):
-    """Schema for the /v1/models response."""
+    """Response schema for the model list endpoint."""
 
     object: str = "list"
     data: list[ModelCard]
