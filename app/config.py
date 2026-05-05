@@ -25,7 +25,10 @@ THREAD_POOL_SIZE: int = int(_env("OPENVINO_API_THREAD_POOL_SIZE", "4"))
 
 # Uvicorn bind
 HOST: str = _env("OPENVINO_API_HOST", "0.0.0.0")
-PORT: int = int(_env("OPENVINO_API_PORT", "8000"))
+PORT: int = int(_env("OPENVINO_API_PORT", "4647"))
+
+# Optional API Key (open by default if empty)
+API_KEY: str | None = os.environ.get("OPENVINO_API_KEY")
 
 
 def configure_logging() -> None:

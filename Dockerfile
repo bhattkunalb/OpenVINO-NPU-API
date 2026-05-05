@@ -35,13 +35,13 @@ ENV CONFIG_PATH=models.yaml \
     NPU_DEVICE_STRING=NPU \
     LOG_LEVEL=INFO \
     OPENVINO_API_HOST=0.0.0.0 \
-    OPENVINO_API_PORT=8000 \
+    OPENVINO_API_PORT=4647 \
     OPENVINO_API_THREAD_POOL_SIZE=4
 
 USER appuser
 
-EXPOSE 8000
+EXPOSE 4647
 
 # Single worker enforced: NPU context is per-process
 CMD ["uvicorn", "app.main:app", \
-     "--host", "0.0.0.0", "--port", "8000", "--workers", "1", "--no-access-log"]
+     "--host", "0.0.0.0", "--port", "4647", "--workers", "1", "--no-access-log"]

@@ -20,6 +20,7 @@ from typing import AsyncGenerator
 import openvino as ov
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from app import config, utils
 from app.model_manager import get_manager
@@ -73,6 +74,32 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+
+class APIKeyMiddleware(BaseHTTPMiddleware):
+    """Enforce OPENVINO_API_KEY if configured in environment."""
+
+    async def dispatch(self, request: Request, call_next):
+        if not config.API_KEY:
+            return await call_next(request)
+
+        # Allow health and docs without key
+        if request.url.path in ["/health", "/docs", "/openapi.json", "/redoc"]:
+            return await call_next(request)
+
+        auth_header = request.headers.get("Authorization")
+        expected = f"Bearer {config.API_KEY}"
+        if not auth_header or auth_header != expected:
+            error_body = {
+                "error": {
+                    "message": "Invalid or missing API key.",
+                    "type": "invalid_request_error"
+                }
+            }
+            return JSONResponse(status_code=401, content=error_body)
+        return await call_next(request)
+
+
+app.add_middleware(APIKeyMiddleware)
 app.include_router(api_module.router)
 
 

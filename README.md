@@ -49,7 +49,7 @@ Edit `models.yaml` (see full schema below). No code changes needed.
 ### 3. Start the server
 
 ```bash
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1
+uvicorn app.main:app --host 0.0.0.0 --port 4647 --workers 1
 ```
 
 > **`--workers 1` is required.** The NPU context is held in-process and cannot be shared across workers.
@@ -65,7 +65,8 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1
 | `LOG_LEVEL` | `INFO` | Python logging level |
 | `OPENVINO_API_THREAD_POOL_SIZE` | `4` | Max inference threads |
 | `OPENVINO_API_HOST` | `0.0.0.0` | Bind host |
-| `OPENVINO_API_PORT` | `8000` | Bind port |
+| `OPENVINO_API_PORT` | `4647` | Bind port |
+| `OPENVINO_API_KEY` | `None` | Optional bearer token for all endpoints |
 
 ---
 
@@ -108,7 +109,7 @@ Restart the server. The model is registered immediately.
 ### GET /health
 
 ```bash
-curl http://localhost:8000/health
+curl http://localhost:4647/health
 ```
 
 ```json
@@ -119,12 +120,54 @@ curl http://localhost:8000/health
 }
 ```
 
+### Checking Model Status
+
+To see which models are correctly downloaded and registered by the API, use:
+
+```bash
+# Get full registry list
+curl http://localhost:4647/v1/models | jq .data[].id
+
+# Check health and currently loaded (warm) models
+curl http://localhost:4647/health
+```
+
+---
+
+## Client Integration & API Keys
+
+By default, the API is open. To secure it, set the `OPENVINO_API_KEY` environment variable. All models share this key.
+
+### OpenAI Style (Python)
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="http://localhost:4647/v1",
+    api_key="your-set-key-here" # or "anything" if not set
+)
+
+response = client.chat.completions.create(
+    model="qwen3-2.5b",
+    messages=[{"role": "user", "content": "Hello"}]
+)
+```
+
+### OpenClaw / OpenJarvis Config
+
+Configure these tools by pointing them to the local endpoint:
+
+- **API Base**: `http://localhost:4647/v1`
+- **API Key**: `sk-local-npu` (or whatever you set in `OPENVINO_API_KEY`)
+- **Models**: Use the names from your `models.yaml` (e.g., `qwen3-2.5b`, `gemma4-2b`)
+
 ---
 
 ### GET /v1/models
 
 ```bash
-curl http://localhost:8000/v1/models
+curl http://localhost:4647/v1/models
 ```
 
 ```json
@@ -142,7 +185,7 @@ curl http://localhost:8000/v1/models
 ### POST /v1/chat/completions
 
 ```bash
-curl http://localhost:8000/v1/chat/completions \
+curl http://localhost:4647/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
     "model": "qwen3-2.5b",
@@ -178,7 +221,7 @@ curl http://localhost:8000/v1/chat/completions \
 ### POST /v1/chat/completions (SSE Streaming)
 
 ```bash
-curl -N http://localhost:8000/v1/chat/completions \
+curl -N http://localhost:4647/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
     "model": "qwen3-2.5b",
@@ -234,7 +277,7 @@ while (true) {
 ### POST /v1/responses
 
 ```bash
-curl http://localhost:8000/v1/responses \
+curl http://localhost:4647/v1/responses \
   -H "Content-Type: application/json" \
   -d '{"model": "qwen3-2.5b", "input": "Summarize the Eiffel Tower in one sentence."}'
 ```
@@ -263,7 +306,7 @@ curl http://localhost:8000/v1/responses \
 Only available when an embedding model (task: embedding) is registered.
 
 ```bash
-curl http://localhost:8000/v1/embeddings \
+curl http://localhost:4647/v1/embeddings \
   -H "Content-Type: application/json" \
   -d '{"model": "bge-m3", "input": ["Hello world", "OpenVINO rocks"]}'
 ```
@@ -304,7 +347,7 @@ docker run --rm \
   --device /dev/accel \
   -v /your/models:/models:ro \
   -e CONFIG_PATH=models.yaml \
-  -p 8000:8000 \
+  -p 4647:4647 \
   openvino-npu-api
 ```
 
