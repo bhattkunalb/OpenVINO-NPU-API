@@ -658,7 +658,6 @@ echo "✓ All concurrent requests completed"
 - **Warm-up matters**: First request after server start will be slower (~2-5s) due to compilation + warm-up
 - **Model reload**: Changing `models.yaml` requires server restart (no hot-reload by design)
 
-
 ---
 
 ## Docker
