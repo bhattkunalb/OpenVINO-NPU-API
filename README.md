@@ -26,10 +26,10 @@ pip install -U "optimum[openvino]" nncf openvino-tokenizers
 
 ### 2. Prepare Your Model
 
-Export a model to OpenVINO IR format (see [Model Export Guide](#-export-models-to-openvino-ir) for more):
+Export a model to OpenVINO IR format (see [Model Export Guide](#-export-any-openvino-npu-supported-model) for more):
 
 ```bash
-optimum-cli export openvino --model Qwen/Qwen3-2B --weight-format int4 --trust-remote-code ./models/qwen3-2b-ov
+optimum-cli export openvino --model Qwen/Qwen3-2B --weight-format int4 --trust-remote-code --output ./models/qwen3.5-2b-ov
 ```
 
 ### 3. Start the Service
@@ -76,10 +76,10 @@ app/
 | Step | Command |
 | :--- | :--- |
 | Install | `pip install -r requirements.txt` |
-| Export model | `optimum-cli export openvino --model Qwen/Qwen3-2B --weight-format int4 --trust-remote-code ./models/qwen3-2b-ov` |
-| Configure | Edit `models.yaml` with your model path |
+| Export model | `optimum-cli export openvino --model Qwen/Qwen3-2B --weight-format int4 --trust-remote-code --output ./models/qwen3.5-2b-ov` |
+| Configure | Edit `models.yaml`: set `name: qwen3.5-2b-ov`, `path: ./models/qwen3.5-2b-ov` |
 | Run | `uvicorn app.main:app --host 0.0.0.0 --port 4647 --workers 1` |
-| Test | `curl http://localhost:4647/health` |
+| Test | `curl http://localhost:4647/v1/models` |
 
 > **`--workers 1` is required.** The NPU context is held in-process and cannot be shared across workers.
 
@@ -144,8 +144,8 @@ curl http://localhost:4647/health
 ```json
 {
   "status": "ok",
-  "loaded_models": ["qwen3-2.5b"],
-  "registered_models": ["qwen3-2.5b", "qwen2.5-1.5b", "gemma4-2b", "bge-m3"]
+  "loaded_models": ["qwen3.5-2b-ov"],
+  "registered_models": ["qwen3.5-2b-ov", "qwen2.5-1.5b-ov", "gemma4-2b-ov", "bge-m3"]
 }
 ```
 
@@ -178,7 +178,7 @@ client = OpenAI(
 )
 
 response = client.chat.completions.create(
-    model="qwen3-2.5b",
+    model="qwen3.5-2b-ov",
     messages=[{"role": "user", "content": "Hello"}]
 )
 ```
@@ -189,7 +189,7 @@ Configure these tools by pointing them to the local endpoint:
 
 - **API Base**: `http://localhost:4647/v1`
 - **API Key**: `sk-local-npu` (or whatever you set in `OPENVINO_API_KEY`)
-- **Models**: Use the names from your `models.yaml` (e.g., `qwen3-2.5b`, `gemma4-2b`)
+- **Models**: Use the names from your `models.yaml` (e.g., `qwen3.5-2b-ov`, `gemma4-2b-ov`)
 
 ---
 
@@ -203,8 +203,8 @@ curl http://localhost:4647/v1/models
 {
   "object": "list",
   "data": [
-    {"id": "qwen3-2.5b", "object": "model", "created": 1700000000, "owned_by": "local"},
-    {"id": "qwen2.5-1.5b", "object": "model", "created": 1700000000, "owned_by": "local"}
+    {"id": "qwen3.5-2b-ov", "object": "model", "created": 1700000000, "owned_by": "local"},
+    {"id": "qwen2.5-1.5b-ov", "object": "model", "created": 1700000000, "owned_by": "local"}
   ]
 }
 ```
@@ -217,7 +217,7 @@ curl http://localhost:4647/v1/models
 curl http://localhost:4647/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "qwen3-2.5b",
+    "model": "qwen3.5-2b-ov",
     "messages": [
       {"role": "system", "content": "You are a helpful assistant."},
       {"role": "user", "content": "What is 2+2?"}
@@ -232,7 +232,7 @@ curl http://localhost:4647/v1/chat/completions \
   "id": "chatcmpl-a1b2c3d4",
   "object": "chat.completion",
   "created": 1700000000,
-  "model": "qwen3-2.5b",
+  "model": "qwen3.5-2b-ov",
   "choices": [
     {
       "index": 0,
@@ -253,7 +253,7 @@ curl http://localhost:4647/v1/chat/completions \
 curl -N http://localhost:4647/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "qwen3-2.5b",
+    "model": "qwen3.5-2b-ov",
     "messages": [{"role": "user", "content": "Count to 5."}],
     "stream": true
   }'
@@ -262,11 +262,11 @@ curl -N http://localhost:4647/v1/chat/completions \
 Expected stream:
 
 ```text
-data: {"id":"chatcmpl-abc","object":"chat.completion.chunk","created":1700000000,"model":"qwen3-2.5b","choices":[{"index":0,"delta":{"role":"assistant"},"finish_reason":null}]}
+data: {"id":"chatcmpl-abc","object":"chat.completion.chunk","created":1700000000,"model":"qwen3.5-2b-ov","choices":[{"index":0,"delta":{"role":"assistant"},"finish_reason":null}]}
 
-data: {"id":"chatcmpl-abc","object":"chat.completion.chunk","created":1700000000,"model":"qwen3-2.5b","choices":[{"index":0,"delta":{"content":"1"},"finish_reason":null}]}
+data: {"id":"chatcmpl-abc","object":"chat.completion.chunk","created":1700000000,"model":"qwen3.5-2b-ov","choices":[{"index":0,"delta":{"content":"1"},"finish_reason":null}]}
 
-data: {"id":"chatcmpl-abc","object":"chat.completion.chunk","created":1700000000,"model":"qwen3-2.5b","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}
+data: {"id":"chatcmpl-abc","object":"chat.completion.chunk","created":1700000000,"model":"qwen3.5-2b-ov","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}
 
 data: [DONE]
 ```
@@ -281,7 +281,7 @@ const resp = await fetch("/v1/chat/completions", {
   method: "POST",
   headers: {"Content-Type": "application/json"},
   body: JSON.stringify({
-    model: "qwen3-2.5b",
+    model: "qwen3.5-2b-ov",
     messages: [{role: "user", content: "Hello"}],
     stream: true
   })
@@ -308,7 +308,7 @@ while (true) {
 ```bash
 curl http://localhost:4647/v1/responses \
   -H "Content-Type: application/json" \
-  -d '{"model": "qwen3-2.5b", "input": "Summarize the Eiffel Tower in one sentence."}'
+  -d '{"model": "qwen3.5-2b-ov", "input": "Summarize the Eiffel Tower in one sentence."}'
 ```
 
 ```json
@@ -316,7 +316,7 @@ curl http://localhost:4647/v1/responses \
   "id": "resp-a1b2c3",
   "object": "response",
   "created_at": 1700000000,
-  "model": "qwen3-2.5b",
+  "model": "qwen3.5-2b-ov",
   "output": [
     {
       "type": "message",
@@ -337,7 +337,7 @@ Only available when an embedding model (task: embedding) is registered.
 ```bash
 curl http://localhost:4647/v1/embeddings \
   -H "Content-Type: application/json" \
-  -d '{"model": "bge-m3", "input": ["Hello world", "OpenVINO rocks"]}'
+  -d '{"model": "bge-m3-ov", "input": ["Hello world", "OpenVINO rocks"]}'
 ```
 
 ```json
@@ -347,7 +347,7 @@ curl http://localhost:4647/v1/embeddings \
     {"object": "embedding", "index": 0, "embedding": [0.021, -0.034, ...]},
     {"object": "embedding", "index": 1, "embedding": [0.018, -0.029, ...]}
   ],
-  "model": "bge-m3",
+  "model": "bge-m3-ov",
   "usage": {"prompt_tokens": 6, "completion_tokens": 0, "total_tokens": 6}
 }
 ```
@@ -367,9 +367,9 @@ curl http://localhost:4647/v1/embeddings \
 
 ---
 
-## 🔄 Export Models to OpenVINO IR
+## 🔄 Export Any OpenVINO NPU-Supported Model
 
-This service requires models in OpenVINO Intermediate Representation (IR) format (`.xml` + `.bin`) or Hugging Face paths compatible with `openvino-genai`.
+This service works with **any model exported to OpenVINO IR**. The commands below are common examples, but you are not limited to them.
 
 ### Prerequisites
 
@@ -387,7 +387,7 @@ optimum-cli export openvino \
   --weight-format int4 \
   --trust-remote-code \
   --task text-generation-with-past \
-  ./models/qwen3-2b-ov
+  --output ./models/qwen3.5-2b-ov
 ```
 
 ### ✅ Qwen 2.5 1.5B (Worker/Utility)
@@ -398,7 +398,7 @@ optimum-cli export openvino \
   --weight-format int4 \
   --trust-remote-code \
   --task text-generation-with-past \
-  ./models/qwen2.5-1.5b-ov
+  --output ./models/qwen2.5-1.5b-ov
 ```
 
 ### ✅ Gemma 4 2B (Verifier/Critique)
@@ -409,7 +409,7 @@ optimum-cli export openvino \
   --weight-format int4 \
   --trust-remote-code \
   --task text-generation-with-past \
-  ./models/gemma4-2b-ov
+  --output ./models/gemma4-2b-ov
 ```
 
 > ⚠️ **Gemma Note**: Use `gemma-2-2b-it` (Instruct-Tuned). The base `gemma-2-2b` lacks chat templates.
@@ -418,8 +418,8 @@ optimum-cli export openvino \
 
 ```yaml
 models:
-  - name: qwen3-2.5b
-    path: ./models/qwen3-2b-ov
+  - name: qwen3.5-2b-ov
+    path: ./models/qwen3.5-2b-ov
     task: chat
     input_type: text
     device: NPU
@@ -428,7 +428,7 @@ models:
     max_tokens: 2048
     context_length: 32768
 
-  - name: qwen2.5-1.5b
+  - name: qwen2.5-1.5b-ov
     path: ./models/qwen2.5-1.5b-ov
     task: completion
     input_type: text
@@ -437,7 +437,7 @@ models:
     postprocess_fn: default_genai
     max_tokens: 1024
 
-  - name: gemma4-2b
+  - name: gemma4-2b-ov
     path: ./models/gemma4-2b-ov
     task: chat
     input_type: text
@@ -485,7 +485,7 @@ This service supports real-time token streaming via SSE for `/v1/chat/completion
 curl -N -X POST http://localhost:4647/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "qwen3-2.5b",
+    "model": "qwen3.5-2b-ov",
     "messages": [{"role": "user", "content": "Explain SSE"}],
     "stream": true
   }'
@@ -496,9 +496,9 @@ curl -N -X POST http://localhost:4647/v1/chat/completions \
 ```text
 Content-Type: text/event-stream
 
-data: {"id":"uuid","object":"chat.completion.chunk","created":1234567890,"model":"qwen3-2.5b","choices":[{"index":0,"delta":{"content":"Hello"},"finish_reason":null}]}
+data: {"id":"uuid","object":"chat.completion.chunk","created":1234567890,"model":"qwen3.5-2b-ov","choices":[{"index":0,"delta":{"content":"Hello"},"finish_reason":null}]}
 
-data: {"id":"uuid","object":"chat.completion.chunk","created":1234567890,"model":"qwen3-2.5b","choices":[{"index":0,"delta":{"content":" world"},"finish_reason":null}]}
+data: {"id":"uuid","object":"chat.completion.chunk","created":1234567890,"model":"qwen3.5-2b-ov","choices":[{"index":0,"delta":{"content":" world"},"finish_reason":null}]}
 
 data:  [DONE]
 ```
@@ -514,7 +514,7 @@ const eventSource = new EventSource(
     method: "POST",
     headers: {"Content-Type": "application/json"},
     body: JSON.stringify({
-      model: "qwen3-2.5b",
+      model: "qwen3.5-2b-ov",
       messages: [{role: "user", content: "Hi"}],
       stream: true
     })
@@ -538,7 +538,7 @@ import requests, json
 
 response = requests.post(
     "http://localhost:4647/v1/chat/completions",
-    json={"model": "qwen3-2.5b", "messages": [{"role": "user", "content": "Hi"}], "stream": True},
+    json={"model": "qwen3.5-2b-ov", "messages": [{"role": "user", "content": "Hi"}], "stream": True},
     stream=True
 )
 
@@ -625,7 +625,7 @@ client = OpenAI(
 )
 
 response = client.chat.completions.create(
-    model="qwen3-2.5b",
+    model="qwen3.5-2b-ov",
     messages=[{"role": "user", "content": "Hello"}]
 )
 print(response.choices[0].message.content)  # Should work identically to OpenAI API
@@ -680,7 +680,7 @@ The model manager ensures reliable, thread-safe inference under concurrent load.
 for i in {1..5}; do
   curl -s -X POST http://localhost:4647/v1/chat/completions \
     -H "Content-Type: application/json" \
-    -d '{"model":"qwen3-2.5b","messages":[{"role":"user","content":"Test '$i'"}]}' &
+    -d '{"model":"qwen3.5-2b-ov","messages":[{"role":"user","content":"Test '$i'"}]}' &
 done
 wait
 echo "✓ All concurrent requests completed"
@@ -715,5 +715,5 @@ docker run --rm \
 Every request emits a structured log line:
 
 ```text
-2025-01-01T12:00:00 INFO     app.utils │ request_id=abc123 model=qwen3-2.5b device=NPU load_ms=0.1 infer_ms=842.3 total_ms=843.0 cache_hit=True status=ok
+2025-01-01T12:00:00 INFO     app.utils │ request_id=abc123 model=qwen3.5-2b-ov device=NPU load_ms=0.1 infer_ms=842.3 total_ms=843.0 cache_hit=True status=ok
 ```
