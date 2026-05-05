@@ -337,6 +337,7 @@ curl http://localhost:4647/v1/embeddings \
 This service requires models in OpenVINO Intermediate Representation (IR) format (`.xml` + `.bin`) or Hugging Face paths compatible with `openvino-genai`.
 
 ### Prerequisites
+
 ```bash
 pip install -U "optimum[openvino]" nncf openvino-tokenizers
 ```
@@ -344,6 +345,7 @@ pip install -U "optimum[openvino]" nncf openvino-tokenizers
 > 💡 **NPU Optimization**: Always use `--weight-format int4` for 2-4x memory reduction with minimal accuracy loss. Include `--trust-remote-code` for Qwen/Gemma architectures.
 
 ### ✅ Qwen 3.5 2B (Chat/Completion)
+
 ```bash
 optimum-cli export openvino \
   --model Qwen/Qwen3-2B \
@@ -354,6 +356,7 @@ optimum-cli export openvino \
 ```
 
 ### ✅ Qwen 2.5 1.5B (Worker/Utility)
+
 ```bash
 optimum-cli export openvino \
   --model Qwen/Qwen2.5-1.5B-Instruct \
@@ -364,6 +367,7 @@ optimum-cli export openvino \
 ```
 
 ### ✅ Gemma 4 2B (Verifier/Critique)
+
 ```bash
 optimum-cli export openvino \
   --model google/gemma-2-2b-it \
@@ -376,6 +380,7 @@ optimum-cli export openvino \
 > ⚠️ **Gemma Note**: Use `gemma-2-2b-it` (Instruct-Tuned). The base `gemma-2-2b` lacks chat templates.
 
 ### 📋 Example `models.yaml` Entries
+
 ```yaml
 models:
   - name: qwen3-2.5b
@@ -408,6 +413,7 @@ models:
 ```
 
 ### 🧪 Quick Validation
+
 ```bash
 # Test model loads in OpenVINO
 python -c "
@@ -422,7 +428,7 @@ print('✓ Model compiled successfully')
 ### 🚨 Troubleshooting Export
 
 | Issue | Solution |
-|-------|----------|
+| :--- | :--- |
 | `--trust-remote-code` error | Update: `pip install -U "optimum[openvino]"` |
 | Out of memory during export | Add `--per-channel`: `--weight-format int4 --per-channel` |
 | Missing tokenizer files | Ensure `tokenizer_config.json` is present in model dir |
