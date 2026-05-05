@@ -118,6 +118,50 @@ class ChatCompletionChunk(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# /v1/completions (Legacy/Standard Completions)
+# ---------------------------------------------------------------------------
+
+class CompletionRequest(BaseModel):
+    """Request body for POST /v1/completions."""
+
+    model: str
+    prompt: Union[str, list[str]]
+    max_tokens: Optional[int] = Field(None, ge=1, le=32768)
+    temperature: Optional[float] = Field(1.0, ge=0.0, le=2.0)
+    top_p: Optional[float] = Field(1.0, ge=0.0, le=1.0)
+    stream: bool = False
+    stop: Optional[Union[str, list[str]]] = None
+    n: int = Field(1, ge=1, le=1)
+
+    @field_validator("n")
+    @classmethod
+    def single_completion_only(cls, v: int) -> int:
+        if v != 1:
+            raise ValueError("n>1 not supported; NPU runs single inference only.")
+        return v
+
+
+class CompletionChoice(BaseModel):
+    """A single choice in a non-streaming completion response."""
+
+    index: int = 0
+    text: str
+    finish_reason: Optional[str] = "stop"
+    logprobs: Optional[dict] = None
+
+
+class CompletionResponse(BaseModel):
+    """Full response envelope for POST /v1/completions."""
+
+    id: str = Field(default_factory=lambda: f"cmpl-{uuid.uuid4().hex}")
+    object: str = "text_completion"
+    created: int = Field(default_factory=lambda: int(time.time()))
+    model: str
+    choices: list[CompletionChoice]
+    usage: UsageInfo
+
+
+# ---------------------------------------------------------------------------
 # /v1/responses  (OpenAI Responses API style)
 # ---------------------------------------------------------------------------
 

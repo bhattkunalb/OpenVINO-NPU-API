@@ -41,7 +41,7 @@ def build_gen_config(
 
 def run_generation(
     cached: CachedModel,
-    messages: list[dict[str, Any]],
+    prompt_or_messages: str | list[dict[str, Any]],
     max_tokens: int,
     temperature: Optional[float],
     top_p: Optional[float],
@@ -52,10 +52,8 @@ def run_generation(
 
     Returns:
         (output_text, load_time_ms, infer_time_ms)
-        load_time_ms is 0.0 on cache-hit callers; tracked by ModelManager.
     """
-    prompt = preprocess.build_prompt_from_messages(messages)
-    prompt = preprocess.truncate_to_context(prompt, cached.entry.context_length * 4)
+    prompt = _get_prompt(prompt_or_messages, cached)
     cfg = build_gen_config(max_tokens, temperature, top_p, stop_strings)
 
     t_infer = time.perf_counter()
@@ -69,7 +67,7 @@ def run_generation(
 
 def run_generation_stream(
     cached: CachedModel,
-    messages: list[dict[str, Any]],
+    prompt_or_messages: str | list[dict[str, Any]],
     max_tokens: int,
     temperature: Optional[float],
     top_p: Optional[float],
@@ -78,19 +76,26 @@ def run_generation_stream(
 ) -> float:
     """
     Blocking streaming generation: preprocess → infer(cb) → done.
-    Tokens are delivered via streamer_cb; caller bridges to asyncio.Queue.
-
-    Returns:
-        infer_time_ms
     """
-    prompt = preprocess.build_prompt_from_messages(messages)
-    prompt = preprocess.truncate_to_context(prompt, cached.entry.context_length * 4)
+    prompt = _get_prompt(prompt_or_messages, cached)
     cfg = build_gen_config(max_tokens, temperature, top_p, stop_strings)
 
     t_infer = time.perf_counter()
     with cached.lock:
         cached.pipeline.generate(prompt, cfg, streamer_cb)
     return (time.perf_counter() - t_infer) * 1000
+
+
+def _get_prompt(data: str | list[dict[str, Any]], cached: CachedModel) -> str:
+    """Standardize input to a context-clipped prompt string."""
+    if isinstance(data, str):
+        prompt = data
+    else:
+        prompt = preprocess.build_prompt_from_messages(data)
+
+    return preprocess.truncate_to_context(
+        prompt, cached.entry.context_length * 4
+    )
 
 
 def run_embedding(

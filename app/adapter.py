@@ -17,6 +17,8 @@ from typing import Any, Optional
 from app.schemas import (
     ChatCompletionChoice,
     ChatCompletionResponse,
+    CompletionChoice,
+    CompletionResponse,
     EmbeddingData,
     EmbeddingResponse,
     Message,
@@ -47,6 +49,13 @@ def response_input_to_messages(body: ResponseRequest) -> list[dict[str, Any]]:
     return [m.model_dump() if not isinstance(m, dict) else m for m in body.input]
 
 
+def completion_input_to_prompt(prompt: str | list[str]) -> str:
+    """Normalize OpenAI completion prompt (str | list[str]) to a single string."""
+    if isinstance(prompt, list):
+        return "\n".join(prompt)
+    return prompt
+
+
 # ---------------------------------------------------------------------------
 # Response construction
 # ---------------------------------------------------------------------------
@@ -70,6 +79,28 @@ def make_chat_response(
                 finish_reason="stop",
             )
         ],
+        usage=UsageInfo(
+            prompt_tokens=p_tok,
+            completion_tokens=c_tok,
+            total_tokens=p_tok + c_tok,
+        ),
+    )
+
+
+def make_completion_response(
+    model: str,
+    text: str,
+    prompt: str,
+    request_id: Optional[str] = None,
+) -> CompletionResponse:
+    """Build a non-streaming CompletionResponse from raw generated text."""
+    rid = request_id or uuid.uuid4().hex[:16]
+    p_tok = _token_estimate(prompt)
+    c_tok = _token_estimate(text)
+    return CompletionResponse(
+        id=f"cmpl-{rid}",
+        model=model,
+        choices=[CompletionChoice(text=text, finish_reason="stop")],
         usage=UsageInfo(
             prompt_tokens=p_tok,
             completion_tokens=c_tok,

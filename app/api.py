@@ -19,7 +19,9 @@ from fastapi.responses import StreamingResponse
 
 from app import postprocess, utils
 from app.adapter import (
+    completion_input_to_prompt,
     make_chat_response,
+    make_completion_response,
     make_embedding_response,
     make_response_object,
     messages_to_dicts,
@@ -35,6 +37,8 @@ from app.preprocess import build_prompt_from_messages, normalize_stop_strings
 from app.schemas import (
     ChatCompletionRequest,
     ChatCompletionResponse,
+    CompletionRequest,
+    CompletionResponse,
     EmbeddingRequest,
     EmbeddingResponse,
     ErrorResponse,
@@ -88,6 +92,7 @@ async def list_models() -> ModelListResponse:
     "/v1/chat/completions",
     tags=["inference"],
     responses=_ERROR_RESPONSES,
+    response_model=None,
 )
 async def chat_completions(
     body: ChatCompletionRequest,
@@ -138,7 +143,9 @@ async def _chat_non_stream(
 
 
 async def _stream_chat(
-    req_id: str, body: ChatCompletionRequest
+    req_id: str,
+    body: ChatCompletionRequest,
+    override_prompt: Optional[str] = None,
 ) -> AsyncGenerator[str, None]:
     """
     SSE generator for streaming chat completions.
@@ -164,8 +171,9 @@ async def _stream_chat(
         cached, hit = manager.get_cached(body.model)
         load_ms = (time.perf_counter() - load_start) * 1000
         max_tok = body.max_tokens or cached.entry.max_tokens
+        prompt_input = override_prompt or msg_dicts
         infer_ms = run_generation_stream(
-            cached, msg_dicts, max_tok, body.temperature, body.top_p, stop, _streamer_cb
+            cached, prompt_input, max_tok, body.temperature, body.top_p, stop, _streamer_cb
         )
         loop.call_soon_threadsafe(queue.put_nowait, None)  # sentinel
         return hit, load_ms, infer_ms, cached
@@ -196,6 +204,67 @@ async def _stream_chat(
 
 
 # ---------------------------------------------------------------------------
+# /v1/completions
+# ---------------------------------------------------------------------------
+
+@router.post(
+    "/v1/completions",
+    tags=["inference"],
+    responses=_ERROR_RESPONSES,
+    response_model=None,
+)
+async def completions(
+    body: CompletionRequest,
+) -> CompletionResponse | StreamingResponse:
+    """Standard OpenAI text completions with optional SSE streaming."""
+    _require_gen_model(body.model)
+    req_id = utils.new_request_id()
+
+    if body.stream:
+        # For simplicity, we wrap prompt in a fake request for the streamer
+        # In a full impl, we'd have a dedicated _stream_completion
+        # But _stream_chat with patched inputs works for now
+        adapted = ChatCompletionRequest(
+            model=body.model,
+            messages=[],
+            max_tokens=body.max_tokens,
+            temperature=body.temperature,
+            top_p=body.top_p,
+            stream=True,
+            stop=body.stop,
+        )
+        prompt = completion_input_to_prompt(body.prompt)
+        return StreamingResponse(
+            _stream_chat(req_id, adapted, override_prompt=prompt),
+            media_type="text/event-stream",
+            headers={"X-Request-ID": req_id, "Cache-Control": "no-cache"},
+        )
+
+    manager = get_manager()
+    t_total = time.perf_counter()
+    prompt = completion_input_to_prompt(body.prompt)
+    stop = normalize_stop_strings(body.stop)
+
+    def _infer() -> tuple:
+        t0 = time.perf_counter()
+        cached, hit = manager.get_cached(body.model)
+        load_ms = (time.perf_counter() - t0) * 1000
+        max_tok = body.max_tokens or cached.entry.max_tokens
+        text, _, infer_ms = run_generation(
+            cached, prompt, max_tok, body.temperature, body.top_p, stop
+        )
+        return text, hit, load_ms, infer_ms, cached
+
+    text, hit, load_ms, infer_ms, cached = await asyncio.to_thread(_infer)
+    total_ms = (time.perf_counter() - t_total) * 1000
+    manager.record_inference(body.model, infer_ms)
+
+    utils.log_request(req_id, body.model, cached.entry.device,
+                      load_ms, infer_ms, total_ms, hit, "ok")
+    return make_completion_response(body.model, text, prompt, req_id)
+
+
+# ---------------------------------------------------------------------------
 # /v1/responses
 # ---------------------------------------------------------------------------
 
@@ -203,6 +272,7 @@ async def _stream_chat(
     "/v1/responses",
     tags=["inference"],
     responses=_ERROR_RESPONSES,
+    response_model=None,
 )
 async def responses(
     body: ResponseRequest,
