@@ -472,7 +472,6 @@ print('✓ Model compiled successfully')
 
 > 🔐 **Security**: Always verify model hashes and sources before using pre-exported weights.
 
-
 ---
 
 ## 📡 Streaming (Server-Sent Events)
@@ -579,13 +578,6 @@ This service implements a strict subset of the OpenAI API for maximum client com
 
 > 💡 **Why are some params ignored?** OpenVINO GenAI pipelines may override generation config at compile time. For full control, use custom `preprocess_fn`/`postprocess_fn` hooks.
 
-### ❌ Not Supported (By Design)
-
-- `functions` / `function_call` (no tool calling at API layer)
-- `response_format` (JSON mode) — handle in client/postprocessor
-- `logprobs`, `top_logprobs` — not exposed by OpenVINO GenAI
-- `n` > 1 (multiple completions) — batch size is always 1
-- `user` field — no user tracking at infrastructure layer
 
 ### 🔄 Response Schema (Guaranteed)
 
