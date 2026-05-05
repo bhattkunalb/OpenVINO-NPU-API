@@ -80,6 +80,7 @@ class ChatCompletionChoice(BaseModel):
 class ChatCompletionResponse(BaseModel):
     """Full response envelope for POST /v1/chat/completions (non-streaming)."""
 
+    # chatcmpl is a common OpenAI prefix for chat completion IDs
     id: str = Field(default_factory=lambda: f"chatcmpl-{uuid.uuid4().hex}")
     object: str = "chat.completion"
     created: int = Field(default_factory=lambda: int(time.time()))
@@ -144,6 +145,17 @@ class ResponseOutput(BaseModel):
     type: str = "message"
     role: str = "assistant"
     content: list[OutputText]
+
+
+class ResponseOutputWrapper(BaseModel):
+    """Wrapper for response outputs."""
+
+    id: str = Field(default_factory=lambda: f"resp-{uuid.uuid4().hex}")
+    object: str = "response"
+    created_at: int = Field(default_factory=lambda: int(time.time()))
+    model: str
+    output: list[ResponseOutput]
+    usage: UsageInfo
 
 
 class ResponseObject(BaseModel):
