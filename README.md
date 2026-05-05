@@ -578,7 +578,6 @@ This service implements a strict subset of the OpenAI API for maximum client com
 
 > 💡 **Why are some params ignored?** OpenVINO GenAI pipelines may override generation config at compile time. For full control, use custom `preprocess_fn`/`postprocess_fn` hooks.
 
-
 ### 🔄 Response Schema (Guaranteed)
 
 All successful responses include:

@@ -16,8 +16,8 @@ models:
   # ---------------------------------------------------------------------------
   # Qwen3 2.5B – primary generation model
   # ---------------------------------------------------------------------------
-  - name: qwen3-2.5b
-    path: /models/Qwen3-2.5B-OV
+  - name: qwen3.5-2.5b
+    path: /models/Qwen3.5-2.5B-OV
     task: chat
     input_type: text
     device: NPU
