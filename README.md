@@ -1,9 +1,8 @@
 # OpenVINO NPU Inference API
 
-> 🚀 Superlight OpenAI-compatible API for OpenVINO models on Intel NPU. 
+> 🚀 Superlight OpenAI-compatible API for OpenVINO models on Intel NPU.
 > Export models with `optimum-cli`, configure via `models.yaml`, run with `uvicorn`.
-
-> 💻 **NPU Hardware Requirements**: Intel Meteor Lake (Core Ultra), Arrow Lake, or Lunar Lake CPUs with NPU enabled in BIOS. 
+> 💻 **NPU Hardware Requirements**: Intel Meteor Lake (Core Ultra), Arrow Lake, or Lunar Lake CPUs with NPU enabled in BIOS.
 > Discrete NPU (e.g., Intel® NPU Acceleration Library) also supported.
 ---
 
@@ -40,7 +39,7 @@ app/
 ## Quickstart
 
 | Step | Command |
-|------|---------|
+| :--- | :--- |
 | Install | `pip install -r requirements.txt` |
 | Export model | `optimum-cli export openvino --model Qwen/Qwen3-2B --weight-format int4 --trust-remote-code ./models/qwen3-2b-ov` |
 | Configure | Edit `models.yaml` with your model path |
@@ -57,7 +56,8 @@ This service requires models in OpenVINO Intermediate Representation (IR) format
 
 Use the `optimum-cli` tool to export and quantize models for NPU execution.
 
-#### Prerequisites
+### Prerequisites
+
 ```bash
 pip install -U optimum[openvino] nncf openvino-tokenizers
 ```
@@ -66,7 +66,8 @@ pip install -U optimum[openvino] nncf openvino-tokenizers
 
 ---
 
-#### ✅ Qwen 3.5 2B (Chat/Completion)
+### ✅ Qwen 3.5 2B (Chat/Completion)
+
 ```bash
 # Export with INT4 quantization (recommended for NPU)
 optimum-cli export openvino \
@@ -81,7 +82,8 @@ ls -lh ./models/qwen3-2b-ov/
 # Should show: openvino_model.xml + openvino_model.bin (~1.2GB for INT4)
 ```
 
-#### ✅ Qwen 2.5 1.5B (Worker/Utility)
+### ✅ Qwen 2.5 1.5B (Worker/Utility)
+
 ```bash
 optimum-cli export openvino \
   --model Qwen/Qwen2.5-1.5B-Instruct \
@@ -91,7 +93,8 @@ optimum-cli export openvino \
   ./models/qwen2.5-1.5b-ov
 ```
 
-#### ✅ Gemma 4 2B (Verifier/Critique)
+### ✅ Gemma 4 2B (Verifier/Critique)
+
 ```bash
 optimum-cli export openvino \
   --model google/gemma-2-2b-it \
@@ -105,7 +108,8 @@ optimum-cli export openvino \
 
 ---
 
-#### 📋 Example `models.yaml` Entry
+### 📋 Example `models.yaml` Entry
+
 After export, add to your `models.yaml`:
 
 ```yaml
@@ -141,7 +145,8 @@ models:
 
 ---
 
-#### 🧪 Quick Validation Test
+### 🧪 Quick Validation Test
+
 ```bash
 # After export, test model loads in OpenVINO
 python -c "
@@ -157,10 +162,10 @@ print('✓ Model compiled successfully')
 
 ---
 
-#### 🚨 Troubleshooting Export
+### 🚨 Troubleshooting Export
 
 | Issue | Solution |
-|-------|----------|
+| :--- | :--- |
 | `--trust-remote-code` error | Update `optimum`: `pip install -U optimum[openvino]` |
 | Out of memory during export | Add `--per-channel` to INT4 quantization: `--weight-format int4 --per-channel` |
 | Missing tokenizer files | Export with `--library transformers` or ensure `tokenizer_config.json` is present |
@@ -169,17 +174,17 @@ print('✓ Model compiled successfully')
 
 ---
 
-#### 📦 Alternative: Use Pre-Exported Models (If Available)
+### 📦 Alternative: Use Pre-Exported Models (If Available)
+
 If you prefer not to export locally, check:
 - [Open Model Zoo](https://github.com/openvinotoolkit/open_model_zoo)
 - [Hugging Face OpenVINO collections](https://huggingface.co/models?library=openvino)
 - Community exports (verify integrity before use)
 
-> 🔐 **Security Note**: Always verify model hashes and sources before using pre-exported weights in production.
-
 ---
 
 ### ✅ Final Checklist Before Running Service
+
 - [ ] Models exported to `./models/<name>-ov/` with `.xml` + `.bin`
 - [ ] `models.yaml` updated with correct paths and task types
 - [ ] NPU driver installed: `pip install openvino-intel-npu`
