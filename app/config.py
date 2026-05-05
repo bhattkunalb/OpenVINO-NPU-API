@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
+from typing import Optional
 
 
 def _env(key: str, default: str) -> str:
@@ -28,7 +29,7 @@ HOST: str = _env("OPENVINO_API_HOST", "0.0.0.0")
 PORT: int = int(_env("OPENVINO_API_PORT", "4647"))
 
 # Optional API Key (open by default if empty)
-API_KEY: str | None = os.environ.get("OPENVINO_API_KEY")
+API_KEY: Optional[str] = os.environ.get("OPENVINO_API_KEY")
 
 
 def configure_logging() -> None:

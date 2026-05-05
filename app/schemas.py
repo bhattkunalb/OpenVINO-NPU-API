@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import time
 import uuid
-from typing import Literal, Optional, Union
+from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -33,8 +33,8 @@ class ErrorDetail(BaseModel):
 
     message: str
     type: str = "server_error"
-    param: Optional[str] = None
-    code: Optional[str] = None
+    param: str | None = None
+    code: str | None = None
 
 
 class ErrorResponse(BaseModel):
@@ -52,11 +52,11 @@ class ChatCompletionRequest(BaseModel):
 
     model: str
     messages: list[Message]
-    max_tokens: Optional[int] = Field(None, ge=1, le=32768)
-    temperature: Optional[float] = Field(1.0, ge=0.0, le=2.0)
-    top_p: Optional[float] = Field(1.0, ge=0.0, le=1.0)
+    max_tokens: int | None = Field(None, ge=1, le=32768)
+    temperature: float | None = Field(1.0, ge=0.0, le=2.0)
+    top_p: float | None = Field(1.0, ge=0.0, le=1.0)
     stream: bool = False
-    stop: Optional[Union[str, list[str]]] = None
+    stop: str | list[str] | None = None
     n: int = Field(1, ge=1, le=1)  # NPU runs single inference only
 
     @field_validator("n")
@@ -73,7 +73,7 @@ class ChatCompletionChoice(BaseModel):
 
     index: int = 0
     message: Message
-    finish_reason: Optional[str] = "stop"
+    finish_reason: str | None = "stop"
     logprobs: None = None
 
 
@@ -94,8 +94,8 @@ class ChatCompletionResponse(BaseModel):
 class DeltaContent(BaseModel):
     """Incremental content delta inside a streaming chunk."""
 
-    content: Optional[str] = None
-    role: Optional[str] = None
+    content: str | None = None
+    role: str | None = None
 
 
 class StreamChoice(BaseModel):
@@ -103,7 +103,7 @@ class StreamChoice(BaseModel):
 
     index: int = 0
     delta: DeltaContent
-    finish_reason: Optional[str] = None
+    finish_reason: str | None = None
     logprobs: None = None
 
 
@@ -125,12 +125,12 @@ class CompletionRequest(BaseModel):
     """Request body for POST /v1/completions."""
 
     model: str
-    prompt: Union[str, list[str]]
-    max_tokens: Optional[int] = Field(None, ge=1, le=32768)
-    temperature: Optional[float] = Field(1.0, ge=0.0, le=2.0)
-    top_p: Optional[float] = Field(1.0, ge=0.0, le=1.0)
+    prompt: str | list[str]
+    max_tokens: int | None = Field(None, ge=1, le=32768)
+    temperature: float | None = Field(1.0, ge=0.0, le=2.0)
+    top_p: float | None = Field(1.0, ge=0.0, le=1.0)
     stream: bool = False
-    stop: Optional[Union[str, list[str]]] = None
+    stop: str | list[str] | None = None
     n: int = Field(1, ge=1, le=1)
 
     @field_validator("n")
@@ -146,8 +146,8 @@ class CompletionChoice(BaseModel):
 
     index: int = 0
     text: str
-    finish_reason: Optional[str] = "stop"
-    logprobs: Optional[dict] = None
+    finish_reason: str | None = "stop"
+    logprobs: dict | None = None
 
 
 class CompletionResponse(BaseModel):
@@ -169,10 +169,10 @@ class ResponseRequest(BaseModel):
     """Request body for POST /v1/responses."""
 
     model: str
-    input: Union[str, list[Message]]
-    max_output_tokens: Optional[int] = Field(None, ge=1, le=32768)
-    temperature: Optional[float] = Field(1.0, ge=0.0, le=2.0)
-    top_p: Optional[float] = Field(1.0, ge=0.0, le=1.0)
+    input: str | list[Message]
+    max_output_tokens: int | None = Field(None, ge=1, le=32768)
+    temperature: float | None = Field(1.0, ge=0.0, le=2.0)
+    top_p: float | None = Field(1.0, ge=0.0, le=1.0)
     stream: bool = False
 
 
@@ -210,7 +210,7 @@ class EmbeddingRequest(BaseModel):
     """Request body for POST /v1/embeddings."""
 
     model: str
-    input: Union[str, list[str]]
+    input: str | list[str]
     encoding_format: Literal["float", "base64"] = "float"
 
 
