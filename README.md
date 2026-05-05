@@ -6,6 +6,41 @@
 > Discrete NPU (e.g., Intel® NPU Acceleration Library) also supported.
 ---
 
+## 🚀 Easy Installation
+
+Get up and running in 3 minutes.
+
+### 1. Native Installation (Windows/Linux)
+
+```bash
+# Clone the repository
+git clone https://github.com/bhattkunalb/OpenVINO-NPU-API.git
+cd OpenVINO-NPU-API
+
+# Install core dependencies
+pip install -r requirements.txt
+
+# (Optional) Install model export tools
+pip install -U "optimum[openvino]" nncf openvino-tokenizers
+```
+
+### 2. Prepare Your Model
+
+Export a model to OpenVINO IR format (see [Model Export Guide](#-export-models-to-openvino-ir) for more):
+
+```bash
+optimum-cli export openvino --model Qwen/Qwen3-2B --weight-format int4 --trust-remote-code ./models/qwen3-2b-ov
+```
+
+### 3. Start the Service
+
+```bash
+# Register your model in models.yaml, then:
+uvicorn app.main:app --host 0.0.0.0 --port 4647 --workers 1
+```
+
+---
+
 ## Architecture
 
 ```text
