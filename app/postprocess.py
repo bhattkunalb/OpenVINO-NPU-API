@@ -1,12 +1,16 @@
-"""Postprocessing hooks: normalise raw model output into API response fields."""
+"""Postprocessing hooks: normalize raw model output into clean API response text."""
 
 from __future__ import annotations
 
 
+# Tokens emitted by common models as end-of-sequence markers.
+_EOS_TOKENS = ["<|endoftext|>", "</s>", "<|im_end|>", "<end_of_turn>", "<|eot_id|>"]
+
+
 def strip_prompt_echo(generated: str, prompt: str) -> str:
     """
-    Some OV IR models echo the prompt in their output.
-    Strip it if present (safe no-op otherwise).
+    Remove prompt prefix from generated text if echoed by the model.
+    Safe no-op when the model does not echo.
     """
     if generated.startswith(prompt):
         return generated[len(prompt):]
@@ -14,17 +18,16 @@ def strip_prompt_echo(generated: str, prompt: str) -> str:
 
 
 def clean_generation(text: str) -> str:
-    """Strip common artefacts: trailing EOS tokens, extra whitespace."""
-    eos_tokens = ["<|endoftext|>", "</s>", "<|im_end|>", "<end_of_turn>", "<|eot_id|>"]
-    for tok in eos_tokens:
+    """Strip EOS tokens and trailing whitespace from generated text."""
+    for tok in _EOS_TOKENS:
         text = text.replace(tok, "")
     return text.strip()
 
 
 def estimate_token_count(text: str) -> int:
     """
-    Coarse token count heuristic (≈4 chars/token).
-    OpenVINO GenAI provides real token counts via GenerationResult;
-    use those when available and fall back here.
+    Coarse token count approximation (≈4 chars/token).
+    GenAI GenerationResult provides real counts; use those when available
+    and call this only as a fallback for prompt-side estimates.
     """
     return max(1, len(text) // 4)

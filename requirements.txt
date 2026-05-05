@@ -1,9 +1,10 @@
 # OpenVINO NPU Inference API – pinned requirements
 # Python 3.10+
 
-# Core inference
+# Core inference stack
 openvino>=2024.3.0
 openvino-genai>=2024.3.0
+openvino-tokenizers>=2024.3.0
 
 # Web framework
 fastapi==0.115.12

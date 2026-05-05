@@ -1,11 +1,15 @@
 # Model registry – add new models here with zero code changes.
-# Each entry is fully self-describing: path, task, device, limits.
 #
-# Supported task_type values: chat | response | embedding
-# Supported device_preference: NPU | GPU | CPU  (NPU strongly recommended)
-# preprocessor / postprocessor: default_genai | custom
-#   If custom, provide preprocessor_path / postprocessor_path pointing to
-#   a Python module with process(input) -> str  signature.
+# Spec-required fields per entry:
+#   name:           unique string identifier
+#   path:           absolute path to OV IR directory (*.xml + *.bin) or GenAI model dir
+#   task:           chat | completion | embedding | vision
+#   input_type:     text | image | tensor
+#   device:         NPU (default) | CPU | GPU
+#   preprocess_fn:  default_genai | custom:<module.function>
+#   postprocess_fn: default_genai | custom:<module.function>
+#   max_tokens:     maximum generation tokens
+#   context_length: context window in tokens
 
 models:
 
@@ -13,46 +17,50 @@ models:
   # Qwen3 2.5B – primary generation model
   # ---------------------------------------------------------------------------
   - name: qwen3-2.5b
-    path: /models/Qwen3-2.5B-OV           # directory containing OV IR + tokenizer
-    task_type: chat
-    device_preference: NPU
+    path: /models/Qwen3-2.5B-OV
+    task: chat
+    input_type: text
+    device: NPU
+    preprocess_fn: default_genai
+    postprocess_fn: default_genai
     max_tokens: 2048
-    context_window: 32768
-    preprocessor: default_genai
-    postprocessor: default_genai
+    context_length: 32768
 
   # ---------------------------------------------------------------------------
   # Qwen2.5 1.5B – lightweight generation model
   # ---------------------------------------------------------------------------
   - name: qwen2.5-1.5b
     path: /models/Qwen2.5-1.5B-Instruct-OV
-    task_type: chat
-    device_preference: NPU
+    task: chat
+    input_type: text
+    device: NPU
+    preprocess_fn: default_genai
+    postprocess_fn: default_genai
     max_tokens: 2048
-    context_window: 32768
-    preprocessor: default_genai
-    postprocessor: default_genai
+    context_length: 32768
 
   # ---------------------------------------------------------------------------
   # Gemma 4 2B – alternative generation model
   # ---------------------------------------------------------------------------
   - name: gemma4-2b
     path: /models/gemma-4-2b-it-OV
-    task_type: chat
-    device_preference: NPU
+    task: chat
+    input_type: text
+    device: NPU
+    preprocess_fn: default_genai
+    postprocess_fn: default_genai
     max_tokens: 2048
-    context_window: 8192
-    preprocessor: default_genai
-    postprocessor: default_genai
+    context_length: 8192
 
   # ---------------------------------------------------------------------------
-  # BGE-M3 Embedding – optional; /v1/embeddings exposed only when this is present
+  # BGE-M3 Embedding – optional; /v1/embeddings only exposed when present
   # ---------------------------------------------------------------------------
   - name: bge-m3
     path: /models/bge-m3-OV
-    task_type: embedding
-    device_preference: NPU
+    task: embedding
+    input_type: text
+    device: NPU
+    preprocess_fn: default_genai
+    postprocess_fn: default_genai
     max_tokens: 512
-    context_window: 8192
-    preprocessor: default_genai
-    postprocessor: default_genai
+    context_length: 8192

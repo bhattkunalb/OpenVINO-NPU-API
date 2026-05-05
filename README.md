@@ -1,6 +1,6 @@
 # OpenVINO NPU Inference API
 
-A superlight, production-ready **OpenAI-compatible inference API** for OpenVINO models running on Intel NPU hardware.
+A lightweight, production-ready **OpenAI-compatible inference API** for OpenVINO models running on Intel NPU hardware.
 
 ---
 
@@ -8,120 +8,138 @@ A superlight, production-ready **OpenAI-compatible inference API** for OpenVINO 
 
 ```text
 app/
-├── main.py          # FastAPI app, lifespan, NPU validation, router mount
-├── api.py           # Route handlers, SSE streaming, request/response wiring
-├── model_manager.py # Thread-safe loader, LRU-style in-memory cache, warm-up
-├── registry.py      # Pydantic config loader from models.yaml / models.json
+├── main.py          # FastAPI app, lifespan, NPU startup validation
+├── api.py           # Route handlers, SSE streaming (dispatch only)
+├── adapter.py       # OpenAI ↔ internal format translation (isolated)
+├── pipeline.py      # preprocess → infer → postprocess contract
+├── model_manager.py # Thread-safe loader, cache, warm-up, latency tracking
+├── registry.py      # Pydantic config loader and validator
 ├── schemas.py       # OpenAI-compatible Pydantic request/response models
-├── preprocess.py    # Prompt construction, context truncation hooks
-├── postprocess.py   # EOS cleanup, token estimation hooks
-├── config.py        # Env-var parsing with typed constants
-└── utils.py         # Shared: thread pool, SSE helpers, structured logging
-models.yaml          # Model registry – add models here, zero code changes
-requirements.txt
-Dockerfile
+├── preprocess.py    # Prompt construction and context truncation
+├── postprocess.py   # EOS stripping and token count estimation
+├── config.py        # Environment variable parsing
+└── utils.py         # SSE helpers, thread pool, structured logging
 ```
+
+## Tech Stack
+
+| Component | Library |
+| :--- | :--- |
+| Web framework | FastAPI 0.110+, Uvicorn |
+| Inference | openvino>=2024.3.0 |
+| Generation | openvino-genai>=2024.3.0 |
+| Tokenization | openvino-tokenizers>=2024.3.0 |
+| Validation | Pydantic>=2.0 |
+| Config | PyYAML>=6.0 |
 
 ---
 
-## Startup Instructions
+## Quickstart
 
-### 1. Prerequisites
-
-| Requirement | Version |
-| :--- | :--- |
-| Python | 3.10+ |
-| openvino | ≥ 2024.3.0 |
-| openvino-genai | ≥ 2024.3.0 |
-| Intel NPU driver | Platform-specific (see below) |
-
-**Intel NPU driver installation:**
-
-- **Windows**: Install the [Intel NPU Driver for Windows](https://www.intel.com/content/www/us/en/download/794734/intel-npu-driver-windows.html)
-- **Linux**: Install `intel-driver-compiler-npu` and `intel-fw-npu` from the Intel NPU Linux driver repo
-
-Verify OpenVINO can see the NPU:
-
-```python
-import openvino as ov
-print(ov.Core().available_devices)  # must include "NPU"
-```
-
-### 2. Install dependencies
+### 1. Install dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 3. Configure models
+### 2. Configure models
 
-Edit `models.yaml` – set the `path` fields to your local OV model directories:
+Edit `models.yaml` (see full schema below). No code changes needed.
 
-```yaml
-- name: qwen3-2.5b
-  path: /models/Qwen3-2.5B-OV      # directory with OV IR files + tokenizer
-  task_type: chat
-  device_preference: NPU
-```
-
-### 4. Start the server
+### 3. Start the server
 
 ```bash
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1
 ```
 
-> **Critical**: `--workers 1` is mandatory. NPU models are held in-process; multiple workers would each try to claim NPU context independently.
+> **`--workers 1` is required.** The NPU context is held in-process and cannot be shared across workers.
 
-### 5. Environment variables
+---
+
+## Environment Variables
 
 | Variable | Default | Description |
 | :--- | :--- | :--- |
-| `OPENVINO_API_MODEL_CONFIG` | `models.yaml` | Path to registry file |
-| `OPENVINO_API_DEVICE` | `NPU` | OpenVINO device string |
-| `OPENVINO_API_LOG_LEVEL` | `INFO` | Python logging level |
-| `OPENVINO_API_THREAD_POOL_SIZE` | `4` | Inference thread pool workers |
+| `CONFIG_PATH` | `models.yaml` | Path to model registry YAML |
+| `NPU_DEVICE_STRING` | `NPU` | OpenVINO device name |
+| `LOG_LEVEL` | `INFO` | Python logging level |
+| `OPENVINO_API_THREAD_POOL_SIZE` | `4` | Max inference threads |
 | `OPENVINO_API_HOST` | `0.0.0.0` | Bind host |
 | `OPENVINO_API_PORT` | `8000` | Bind port |
 
 ---
 
+## models.yaml Schema
+
+```yaml
+models:
+  - name: my-model              # unique identifier (required)
+    path: /models/my-model-OV   # path to OV IR dir (required)
+    task: chat                  # chat | completion | embedding | vision
+    input_type: text            # text | image | tensor
+    device: NPU                 # NPU | CPU | GPU
+    preprocess_fn: default_genai  # default_genai | custom:<module.fn>
+    postprocess_fn: default_genai
+    max_tokens: 2048
+    context_length: 32768
+```
+
+### Adding a new model (zero code changes)
+
+```yaml
+# Append to models.yaml:
+  - name: phi-3-mini
+    path: /models/phi-3-mini-OV
+    task: chat
+    input_type: text
+    device: NPU
+    preprocess_fn: default_genai
+    postprocess_fn: default_genai
+    max_tokens: 2048
+    context_length: 4096
+```
+
+Restart the server. The model is registered immediately.
+
+---
+
 ## API Reference
 
-### Health check
+### GET /health
 
-```text
-GET /health
+```bash
+curl http://localhost:8000/health
 ```
 
-### List models
-
-```text
-GET /v1/models
-```
-
-### Chat completions (OpenAI-compatible)
-
-```text
-POST /v1/chat/completions
-```
-
-### Responses API
-
-```text
-POST /v1/responses
-```
-
-### Embeddings (only active if an embedding model is registered)
-
-```text
-POST /v1/embeddings
+```json
+{
+  "status": "ok",
+  "loaded_models": ["qwen3-2.5b"],
+  "registered_models": ["qwen3-2.5b", "qwen2.5-1.5b", "gemma4-2b", "bge-m3"]
+}
 ```
 
 ---
 
-## Example `curl` Requests
+### GET /v1/models
 
-### Chat completion (non-streaming)
+```bash
+curl http://localhost:8000/v1/models
+```
+
+```json
+{
+  "object": "list",
+  "data": [
+    {"id": "qwen3-2.5b", "object": "model", "created": 1700000000, "owned_by": "local"},
+    {"id": "qwen2.5-1.5b", "object": "model", "created": 1700000000, "owned_by": "local"}
+  ]
+}
+```
+
+---
+
+### POST /v1/chat/completions
 
 ```bash
 curl http://localhost:8000/v1/chat/completions \
@@ -130,148 +148,136 @@ curl http://localhost:8000/v1/chat/completions \
     "model": "qwen3-2.5b",
     "messages": [
       {"role": "system", "content": "You are a helpful assistant."},
-      {"role": "user", "content": "Explain what Intel NPU is in two sentences."}
+      {"role": "user", "content": "What is 2+2?"}
     ],
-    "max_tokens": 256,
+    "max_tokens": 128,
     "temperature": 0.7
   }'
 ```
 
-### Chat completion (streaming)
-
-```bash
-curl http://localhost:8000/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -H "Accept: text/event-stream" \
-  -d '{
-    "model": "qwen2.5-1.5b",
-    "messages": [{"role": "user", "content": "Count from 1 to 5."}],
-    "stream": true,
-    "max_tokens": 128
-  }'
-```
-
-### Responses API Example
-
-```bash
-curl http://localhost:8000/v1/responses \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "gemma4-2b",
-    "input": "What is the capital of France?",
-    "max_output_tokens": 64
-  }'
-```
-
-### Embeddings Example
-
-```bash
-curl http://localhost:8000/v1/embeddings \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "bge-m3",
-    "input": ["Hello world", "OpenVINO on NPU is fast."]
-  }'
+```json
+{
+  "id": "chatcmpl-a1b2c3d4",
+  "object": "chat.completion",
+  "created": 1700000000,
+  "model": "qwen3-2.5b",
+  "choices": [
+    {
+      "index": 0,
+      "message": {"role": "assistant", "content": "2 + 2 = 4."},
+      "finish_reason": "stop",
+      "logprobs": null
+    }
+  ],
+  "usage": {"prompt_tokens": 28, "completion_tokens": 9, "total_tokens": 37}
+}
 ```
 
 ---
 
-## SSE Streaming Consumption
+### POST /v1/chat/completions (SSE Streaming)
 
-### Python (httpx)
-
-```python
-import httpx, json
-
-with httpx.Client(timeout=120) as client:
-    with client.stream(
-        "POST",
-        "http://localhost:8000/v1/chat/completions",
-        json={
-            "model": "qwen3-2.5b",
-            "messages": [{"role": "user", "content": "Write a haiku about silicon."}],
-            "stream": True,
-        },
-    ) as resp:
-        for line in resp.iter_lines():
-            if line.startswith("data: "):
-                payload = line[6:]
-                if payload == "[DONE]":
-                    break
-                chunk = json.loads(payload)
-                delta = chunk["choices"][0]["delta"].get("content", "")
-                print(delta, end="", flush=True)
+```bash
+curl -N http://localhost:8000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "qwen3-2.5b",
+    "messages": [{"role": "user", "content": "Count to 5."}],
+    "stream": true
+  }'
 ```
 
-### JavaScript (fetch / browser)
+Expected stream:
 
-```js
-const resp = await fetch("http://localhost:8000/v1/chat/completions", {
+```text
+data: {"id":"chatcmpl-abc","object":"chat.completion.chunk","created":1700000000,"model":"qwen3-2.5b","choices":[{"index":0,"delta":{"role":"assistant"},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-abc","object":"chat.completion.chunk","created":1700000000,"model":"qwen3-2.5b","choices":[{"index":0,"delta":{"content":"1"},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-abc","object":"chat.completion.chunk","created":1700000000,"model":"qwen3-2.5b","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}
+
+data: [DONE]
+```
+
+#### JavaScript EventSource example
+
+```javascript
+const es = new EventSource("/v1/chat/completions");
+// Note: EventSource is GET-only; use fetch with ReadableStream for POST:
+
+const resp = await fetch("/v1/chat/completions", {
   method: "POST",
   headers: {"Content-Type": "application/json"},
   body: JSON.stringify({
     model: "qwen3-2.5b",
-    messages: [{role: "user", content: "Hello!"}],
-    stream: true,
-  }),
+    messages: [{role: "user", content: "Hello"}],
+    stream: true
+  })
 });
 
 const reader = resp.body.getReader();
 const decoder = new TextDecoder();
 while (true) {
-  const { done, value } = await reader.read();
+  const {done, value} = await reader.read();
   if (done) break;
-  for (const line of decoder.decode(value).split("\n")) {
-    if (line.startsWith("data: ") && line !== "data: [DONE]") {
-      const chunk = JSON.parse(line.slice(6));
-      process.stdout.write(chunk.choices[0].delta?.content ?? "");
-    }
+  const lines = decoder.decode(value).split("\n");
+  for (const line of lines) {
+    if (!line.startsWith("data: ") || line === "data: [DONE]") continue;
+    const chunk = JSON.parse(line.slice(6));
+    process.stdout.write(chunk.choices[0].delta.content ?? "");
   }
 }
 ```
 
 ---
 
-## Adding a New Model (Zero Code Changes)
+### POST /v1/responses
 
-1. Export your model to OpenVINO IR format:
+```bash
+curl http://localhost:8000/v1/responses \
+  -H "Content-Type: application/json" \
+  -d '{"model": "qwen3-2.5b", "input": "Summarize the Eiffel Tower in one sentence."}'
+```
 
-   ```bash
-   # Using optimum-intel
-   optimum-cli export openvino --model your-hf-repo --task text-generation-with-past /models/your-model-OV
-
-   # Or using openvino-genai converter
-   python -m openvino_genai.convert --model your-hf-repo --output /models/your-model-OV
-   ```
-
-2. Add an entry to `models.yaml`:
-
-   ```yaml
-   - name: my-new-model
-     path: /models/your-model-OV
-     task_type: chat        # chat | response | embedding
-     device_preference: NPU
-     max_tokens: 2048
-     context_window: 8192
-   ```
-
-3. Restart the server. The model compiles and warms up on first request.
+```json
+{
+  "id": "resp-a1b2c3",
+  "object": "response",
+  "created_at": 1700000000,
+  "model": "qwen3-2.5b",
+  "output": [
+    {
+      "type": "message",
+      "role": "assistant",
+      "content": [{"type": "output_text", "text": "The Eiffel Tower is an iconic iron lattice tower in Paris."}]
+    }
+  ],
+  "usage": {"prompt_tokens": 12, "completion_tokens": 14, "total_tokens": 26}
+}
+```
 
 ---
 
-## Docker Deployment
+### POST /v1/embeddings
+
+Only available when an embedding model (task: embedding) is registered.
 
 ```bash
-# Build
-docker build -t openvino-npu-api .
+curl http://localhost:8000/v1/embeddings \
+  -H "Content-Type: application/json" \
+  -d '{"model": "bge-m3", "input": ["Hello world", "OpenVINO rocks"]}'
+```
 
-# Run (mount model dir and NPU device)
-docker run -d \
-  --device /dev/accel \
-  -v /your/models:/models:ro \
-  -e OPENVINO_API_MODEL_CONFIG=models.yaml \
-  -p 8000:8000 \
-  openvino-npu-api
+```json
+{
+  "object": "list",
+  "data": [
+    {"object": "embedding", "index": 0, "embedding": [0.021, -0.034, ...]},
+    {"object": "embedding", "index": 1, "embedding": [0.018, -0.029, ...]}
+  ],
+  "model": "bge-m3",
+  "usage": {"prompt_tokens": 6, "completion_tokens": 0, "total_tokens": 6}
+}
 ```
 
 ---
@@ -281,9 +287,26 @@ docker run -d \
 | Assumption | Detail |
 | :--- | :--- |
 | **No CPU fallback** | Service raises `RuntimeError` at startup if NPU plugin is absent. |
-| **Single process** | NPU state is in-process. Run `--workers 1` always. |
-| **Model format** | Models must be in OpenVINO IR (`.xml` + `.bin`) or GenAI compatible directory. |
-| **Batch size** | Batch size = 1. No dynamic batching. |
+| **Single worker** | NPU context is in-process. Always run with `--workers 1`. |
+| **Model format** | OV IR (`.xml` + `.bin`) or GenAI-compatible directory. |
+| **Batch size** | Fixed at 1. No dynamic batching. |
+| **Plugin package** | `openvino-intel-npu` must be installed alongside `openvino`. |
+| **BIOS/firmware** | Intel NPU must be enabled in BIOS. Driver: `intel-npu-driver`. |
+
+---
+
+## Docker
+
+```dockerfile
+# See Dockerfile in repo root
+docker build -t openvino-npu-api .
+docker run --rm \
+  --device /dev/accel \
+  -v /your/models:/models:ro \
+  -e CONFIG_PATH=models.yaml \
+  -p 8000:8000 \
+  openvino-npu-api
+```
 
 ---
 
@@ -292,6 +315,5 @@ docker run -d \
 Every request emits a structured log line:
 
 ```text
-2025-01-01T12:00:00 INFO     app.utils │ request_id=abc123 model=qwen3-2.5b device=NPU
-  load_ms=0.1 infer_ms=842.3 total_ms=843.0 cache_hit=True status=ok
+2025-01-01T12:00:00 INFO     app.utils │ request_id=abc123 model=qwen3-2.5b device=NPU load_ms=0.1 infer_ms=842.3 total_ms=843.0 cache_hit=True status=ok
 ```

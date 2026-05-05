@@ -57,19 +57,12 @@ class ChatCompletionRequest(BaseModel):
     top_p: Optional[float] = Field(1.0, ge=0.0, le=1.0)
     stream: bool = False
     stop: Optional[Union[str, list[str]]] = None
-    n: int = Field(1, ge=1, le=1)  # only n=1 supported on NPU
+    n: int = Field(1, ge=1, le=1)  # NPU runs single inference only
 
     @field_validator("n")
     @classmethod
     def single_completion_only(cls, v: int) -> int:
-        """
-        Reject n>1; NPU pipeline runs one inference at a time.
-        
-        Args:
-            v: The value of 'n' to validate.
-        Returns:
-            The validated value of 'n'.
-        """
+        """Reject n>1; NPU pipeline runs one inference at a time."""
         if v != 1:
             raise ValueError("n>1 not supported; NPU runs single inference only.")
         return v
@@ -87,7 +80,7 @@ class ChatCompletionChoice(BaseModel):
 class ChatCompletionResponse(BaseModel):
     """Full response envelope for POST /v1/chat/completions (non-streaming)."""
 
-    # chatcmpl is a common OpenAI prefix for chat completion IDs
+    # "chatcmpl-" is the standard OpenAI prefix for chat completion IDs
     id: str = Field(default_factory=lambda: f"chatcmpl-{uuid.uuid4().hex}")
     object: str = "chat.completion"
     created: int = Field(default_factory=lambda: int(time.time()))
@@ -152,17 +145,6 @@ class ResponseOutput(BaseModel):
     type: str = "message"
     role: str = "assistant"
     content: list[OutputText]
-
-
-class ResponseOutputWrapper(BaseModel):
-    """Wrapper for response outputs."""
-
-    id: str = Field(default_factory=lambda: f"resp-{uuid.uuid4().hex}")
-    object: str = "response"
-    created_at: int = Field(default_factory=lambda: int(time.time()))
-    model: str
-    output: list[ResponseOutput]
-    usage: UsageInfo
 
 
 class ResponseObject(BaseModel):

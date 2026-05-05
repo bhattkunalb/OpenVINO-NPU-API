@@ -2,18 +2,20 @@
 FastAPI application entry-point.
 
 Startup sequence:
-  1. Validate NPU plugin availability (fail fast – no CPU fallback).
-  2. Load and validate model registry from YAML/JSON.
-  3. Register entries with ModelManager (lazy load on first request).
-  4. Initialise thread pool.
+  1. Configure logging.
+  2. Validate NPU plugin availability (fail fast – no CPU fallback).
+  3. Parse and validate models.yaml registry.
+  4. Register model entries with ModelManager (lazy compilation on first request).
+  5. Initialize thread pool.
 
-Shutdown: drain thread pool gracefully.
+Shutdown: drain thread pool, release resources.
 """
 
 from __future__ import annotations
 
 import logging
 from contextlib import asynccontextmanager
+from typing import AsyncGenerator
 
 import openvino as ov
 from fastapi import FastAPI, Request
@@ -30,20 +32,21 @@ log = logging.getLogger(__name__)
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
+    """Manage startup and shutdown of the inference service."""
     log.info("=== OpenVINO NPU API | startup ===")
     _assert_npu_available()
     registry = load_registry(config.MODEL_CONFIG_PATH)
     get_manager().register_entries(registry.models)
     utils.get_thread_pool()
-    log.info("Startup complete. %d model(s) registered.", len(registry.models))
+    log.info("Startup complete. %d model(s) registered (lazy load).", len(registry.models))
     yield
     log.info("=== OpenVINO NPU API | shutdown ===")
     utils.shutdown_thread_pool()
 
 
 def _assert_npu_available() -> None:
-    """Fail fast if the NPU plugin is not loaded by OpenVINO Core."""
+    """Abort startup if the NPU plugin is not present in OpenVINO Core."""
     core = ov.Core()
     available = core.available_devices
     log.info("OpenVINO available devices: %s", available)
@@ -53,8 +56,9 @@ def _assert_npu_available() -> None:
     )
     if not npu_found:
         raise RuntimeError(
-            f"NPU device '{config.NPU_DEVICE}' not found in OpenVINO devices: {available}. "
-            "Install the Intel NPU driver and openvino-npu plugin. "
+            f"NPU device '{config.NPU_DEVICE}' not found. "
+            f"Available devices: {available}. "
+            "Install the Intel NPU driver and openvino-intel-npu plugin. "
             "This service does NOT fall back to CPU."
         )
     log.info("NPU plugin confirmed: '%s'", config.NPU_DEVICE)
@@ -74,7 +78,11 @@ app.include_router(api_module.router)
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
-    log.error("Unhandled exception on %s %s: %s", request.method, request.url.path, exc, exc_info=True)
+    """Catch-all: return OpenAI-compatible error JSON for any unhandled exception."""
+    log.error(
+        "Unhandled exception on %s %s: %s",
+        request.method, request.url.path, exc, exc_info=True,
+    )
     body = ErrorResponse(error=ErrorDetail(message=str(exc), type="internal_server_error"))
     return JSONResponse(status_code=500, content=body.model_dump())
 
@@ -85,6 +93,6 @@ if __name__ == "__main__":
         "app.main:app",
         host=config.HOST,
         port=config.PORT,
-        workers=1,      # single worker – NPU context is in-process
+        workers=1,       # NPU context is in-process; single worker is required
         log_config=None,
     )
