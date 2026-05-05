@@ -567,17 +567,17 @@ This service implements a strict subset of the OpenAI API for maximum client com
 
 ### ✅ Supported Fields & Behavior
 
-| Field | Supported | Notes |
+| Parameter | Supported | Notes |
 | :--- | :--- | :--- |
-| `model` | ✅ | Must match a registered model name in `models.yaml` |
-| `messages` | ✅ | Chat format: `[{"role": "user\|assistant\|system", "content": "..."}]` |
-| `prompt` | ✅ | For `/v1/responses` completion-style requests |
-| `stream` | ✅ | Boolean; enables SSE streaming when `true` |
-| `max_tokens` | ✅ | Limits generation length (approximate) |
-| `temperature` | ⚠️ | Accepted but may be ignored depending on model pipeline |
-| `stop` | ⚠️ | Accepted but not enforced at API layer |
+| `model` | ✅ | Must match `name` in `models.yaml` |
+| `messages` / `prompt` | ✅ | Chat or completion format |
+| `stream` | ✅ | Enables SSE when `true` |
+| `max_tokens` | ✅ | Approximate limit |
+| `temperature` | ⚠️ | Accepted but **ignored unless model pipeline enables sampling**. Set `do_sample: true` in custom `preprocess_fn` to enable. |
+| `stop` | ⚠️ | Accepted but **not enforced at API layer**. Implement in custom `postprocess_fn` if needed. |
 | `usage` | ✅ | Returned with approximate token counts |
-| `error` format | ✅ | Matches OpenAI: `{"error": {"message", "type", "param", "code"}}` |
+
+> 💡 **Why are some params ignored?** OpenVINO GenAI pipelines may override generation config at compile time. For full control, use custom `preprocess_fn`/`postprocess_fn` hooks.
 
 ### ❌ Not Supported (By Design)
 
