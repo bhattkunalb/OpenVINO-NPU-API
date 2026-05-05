@@ -25,7 +25,7 @@ class UsageInfo(BaseModel):
 
 
 class ErrorDetail(BaseModel):
-    """Details about a specific error."""
+    """Detailed error information including message and code."""
 
     message: str
     type: str = "server_error"
@@ -34,13 +34,13 @@ class ErrorDetail(BaseModel):
 
 
 class ErrorResponse(BaseModel):
-    """Standard error response envelope."""
+    """Standard error response envelope following OpenAI convention."""
 
     error: ErrorDetail
 
 
 class ChatCompletionRequest(BaseModel):
-    """Parameters for creating a chat completion."""
+    """Request schema for the chat completions endpoint."""
 
     model: str
     messages: list[Message]
@@ -53,7 +53,7 @@ class ChatCompletionRequest(BaseModel):
 
 
 class ChatCompletionChoice(BaseModel):
-    """A single result choice for a chat completion."""
+    """A single choice in a chat completion response."""
 
     index: int = 0
     message: Message
@@ -62,7 +62,7 @@ class ChatCompletionChoice(BaseModel):
 
 
 class ChatCompletionResponse(BaseModel):
-    """A full response object for a chat completion."""
+    """Response schema for the chat completions endpoint."""
 
     id: str = Field(default_factory=lambda: f"chatcmpl-{uuid.uuid4().hex[:16]}")
     object: str = "chat.completion"
@@ -73,7 +73,7 @@ class ChatCompletionResponse(BaseModel):
 
 
 class CompletionRequest(BaseModel):
-    """Parameters for creating a completion."""
+    """Request schema for the text completion endpoint."""
 
     model: str
     prompt: str | list[str]
@@ -86,7 +86,7 @@ class CompletionRequest(BaseModel):
 
 
 class CompletionChoice(BaseModel):
-    """A single result choice for a completion."""
+    """A single choice in a text completion response."""
 
     index: int = 0
     text: str
@@ -95,7 +95,7 @@ class CompletionChoice(BaseModel):
 
 
 class CompletionResponse(BaseModel):
-    """A full response object for a completion."""
+    """Response schema for the text completion endpoint."""
 
     id: str = Field(default_factory=lambda: f"cmpl-{uuid.uuid4().hex[:16]}")
     object: str = "text_completion"
@@ -106,7 +106,7 @@ class CompletionResponse(BaseModel):
 
 
 class ResponseRequest(BaseModel):
-    """Parameters for creating a response object."""
+    """Request schema for the internal /v1/responses endpoint."""
 
     model: str
     input: str | list[Message]
@@ -117,14 +117,14 @@ class ResponseRequest(BaseModel):
 
 
 class OutputText(BaseModel):
-    """A text segment of the response output."""
+    """A single text chunk in a multi-modal response output."""
 
     type: str = "output_text"
     text: str
 
 
 class ResponseOutput(BaseModel):
-    """A single output object in the response list."""
+    """Unified output container for the /v1/responses endpoint."""
 
     type: str = "message"
     role: str = "assistant"
@@ -132,7 +132,7 @@ class ResponseOutput(BaseModel):
 
 
 class ResponseObject(BaseModel):
-    """A full response object for the /v1/responses endpoint."""
+    """Response object for the /v1/responses endpoint."""
 
     id: str = Field(default_factory=lambda: f"resp-{uuid.uuid4().hex[:16]}")
     object: str = "response"
@@ -143,7 +143,7 @@ class ResponseObject(BaseModel):
 
 
 class EmbeddingRequest(BaseModel):
-    """Parameters for creating an embedding."""
+    """Request schema for the embeddings endpoint."""
 
     model: str
     input: str | list[str]
@@ -151,7 +151,7 @@ class EmbeddingRequest(BaseModel):
 
 
 class EmbeddingData(BaseModel):
-    """A single embedding vector object."""
+    """A single embedding vector with its position index."""
 
     object: str = "embedding"
     index: int
@@ -159,7 +159,7 @@ class EmbeddingData(BaseModel):
 
 
 class EmbeddingResponse(BaseModel):
-    """A full response object for the /v1/embeddings endpoint."""
+    """Response schema for the embeddings endpoint."""
 
     object: str = "list"
     data: list[EmbeddingData]
@@ -168,7 +168,7 @@ class EmbeddingResponse(BaseModel):
 
 
 class ModelCard(BaseModel):
-    """Metadata for a registered OpenVINO model."""
+    """Metadata for a registered model, providing ID and creation info."""
 
     id: str
     object: str = "model"
@@ -177,7 +177,7 @@ class ModelCard(BaseModel):
 
 
 class ModelListResponse(BaseModel):
-    """A list of available models."""
+    """Schema for the /v1/models response."""
 
     object: str = "list"
     data: list[ModelCard]

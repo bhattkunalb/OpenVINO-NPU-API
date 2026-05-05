@@ -14,10 +14,10 @@
 models:
 
   # ---------------------------------------------------------------------------
-  # Qwen3 2.5B – primary generation model
+  # Qwen 3.5 2B – primary generation model
   # ---------------------------------------------------------------------------
-  - name: qwen3.5-2.5b
-    path: /models/Qwen3.5-2.5B-OV
+  - name: qwen3.5-2b-ov
+    path: ./models/qwen3.5-2b-ov
     task: chat
     input_type: text
     device: NPU
@@ -27,10 +27,10 @@ models:
     context_length: 32768
 
   # ---------------------------------------------------------------------------
-  # Qwen2.5 1.5B – lightweight generation model
+  # Qwen 2.5 1.5B – lightweight generation model
   # ---------------------------------------------------------------------------
-  - name: qwen2.5-1.5b
-    path: /models/Qwen2.5-1.5B-Instruct-OV
+  - name: qwen2.5-1.5b-ov
+    path: ./models/qwen2.5-1.5b-ov
     task: chat
     input_type: text
     device: NPU
@@ -42,8 +42,8 @@ models:
   # ---------------------------------------------------------------------------
   # Gemma 4 2B – alternative generation model
   # ---------------------------------------------------------------------------
-  - name: gemma4-2b
-    path: /models/gemma-4-2b-it-OV
+  - name: gemma4-2b-ov
+    path: ./models/gemma4-2b-ov
     task: chat
     input_type: text
     device: NPU
@@ -55,8 +55,8 @@ models:
   # ---------------------------------------------------------------------------
   # BGE-M3 Embedding – optional; /v1/embeddings only exposed when present
   # ---------------------------------------------------------------------------
-  - name: bge-m3
-    path: /models/bge-m3-OV
+  - name: bge-m3-ov
+    path: ./models/bge-m3-ov
     task: embedding
     input_type: text
     device: NPU

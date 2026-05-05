@@ -372,6 +372,7 @@ curl http://localhost:4647/v1/embeddings \
 > 🌐 **Broad Model Support**: Any Hugging Face model exportable via `optimum-cli` works (Llama 3.2, Phi-3, Mistral, StarCoder2, etc.), not just the examples below.
 
 ### Prerequisites
+
 ```bash
 pip install -U "optimum[openvino]" nncf openvino-tokenizers
 ```
@@ -379,7 +380,7 @@ pip install -U "optimum[openvino]" nncf openvino-tokenizers
 ### ✅ Exact Export Commands (with `--output`)
 
 | Model | Command |
-|-------|---------|
+| :--- | :--- |
 | **Qwen 3.5 2B** | `optimum-cli export openvino --model Qwen/Qwen3-2B --weight-format int4 --trust-remote-code --task text-generation-with-past --output ./models/qwen3.5-2b-ov` |
 | **Qwen 2.5 1.5B** | `optimum-cli export openvino --model Qwen/Qwen2.5-1.5B-Instruct --weight-format int4 --trust-remote-code --task text-generation-with-past --output ./models/qwen2.5-1.5b-ov` |
 | **Gemma 4 2B** | `optimum-cli export openvino --model google/gemma-2-2b-it --weight-format int4 --trust-remote-code --task text-generation-with-past --output ./models/gemma4-2b-ov` |
@@ -387,6 +388,7 @@ pip install -U "optimum[openvino]" nncf openvino-tokenizers
 > 💡 **Tip**: The `--output ./models/<name>-ov` flag ensures paths match your `models.yaml` entries.
 
 ### 📋 Example `models.yaml` Entries (Updated Names)
+
 ```yaml
 models:
   - name: qwen3.5-2b-ov
@@ -534,7 +536,7 @@ for line in response.iter_lines():
 ## 🎯 OpenAI API Compatibility
 
 | Parameter | Supported | Notes |
-|-----------|-----------|-------|
+| :--- | :--- | :--- |
 | `model` | ✅ | Must match `name` in `models.yaml` (e.g., `qwen3.5-2b-ov`) |
 | `messages` / `prompt` | ✅ | Chat or completion format |
 | `stream` | ✅ | Enables SSE when `true` |
@@ -596,20 +598,23 @@ print(response.choices[0].message.content)  # Should work identically to OpenAI 
 ## 🔒 Model Manager Stability
 
 ### Concurrency & Memory
+
 - **Single worker required**: `--workers 1` prevents NPU resource contention
 - **Per-model locking**: Thread-safe inference via `threading.Lock` per cached model
 - **Async wrapping**: Blocking OpenVINO calls use `asyncio.to_thread()` to avoid event loop blocking
 
 ### Cache Behavior
+
 | Behavior | Details |
-|----------|---------|
+| :--- | :--- |
 | Lazy loading | Models compile on first request, not at startup |
 | In-memory cache | Compiled pipelines stored in dict; no eviction |
 | Warm-up | Dummy inference runs post-compilation to initialize NPU kernels |
 
 ### Memory Expectations (INT4)
+
 | Model | Disk Size | Runtime RAM |
-|-------|-----------|-------------|
+| :--- | :--- | :--- |
 | Qwen 3.5 2B | ~1.2 GB | ~2.5 GB |
 | Qwen 2.5 1.5B | ~0.9 GB | ~2.0 GB |
 | Gemma 4 2B | ~1.2 GB | ~2.5 GB |
