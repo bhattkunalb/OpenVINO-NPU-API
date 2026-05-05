@@ -48,7 +48,6 @@ class ErrorResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 class ChatCompletionRequest(BaseModel):
-    """Request schema for /v1/chat/completions."""
     """Request body for POST /v1/chat/completions."""
 
     model: str
@@ -70,7 +69,6 @@ class ChatCompletionRequest(BaseModel):
 
 
 class ChatCompletionChoice(BaseModel):
-    """A single choice in a chat completion response."""
     """A single completion choice in a non-streaming response."""
 
     index: int = 0
@@ -80,7 +78,6 @@ class ChatCompletionChoice(BaseModel):
 
 
 class ChatCompletionResponse(BaseModel):
-    """Response schema for /v1/chat/completions."""
     """Full response envelope for POST /v1/chat/completions (non-streaming)."""
 
     # "chatcmpl-" is the standard OpenAI prefix for chat completion IDs
@@ -111,7 +108,6 @@ class StreamChoice(BaseModel):
 
 
 class ChatCompletionChunk(BaseModel):
-    """A single chunk in a streaming chat completion response."""
     """SSE chunk sent during a streaming chat completion response."""
 
     id: str
@@ -126,7 +122,6 @@ class ChatCompletionChunk(BaseModel):
 # ---------------------------------------------------------------------------
 
 class CompletionRequest(BaseModel):
-    """Request schema for /v1/completions (legacy text completions)."""
     """Request body for POST /v1/completions."""
 
     model: str
@@ -156,7 +151,6 @@ class CompletionChoice(BaseModel):
 
 
 class CompletionResponse(BaseModel):
-    """Response schema for /v1/completions."""
     """Full response envelope for POST /v1/completions."""
 
     id: str = Field(default_factory=lambda: f"cmpl-{uuid.uuid4().hex}")
@@ -213,7 +207,6 @@ class ResponseObject(BaseModel):
 # ---------------------------------------------------------------------------
 
 class EmbeddingRequest(BaseModel):
-    """Request schema for /v1/embeddings."""
     """Request body for POST /v1/embeddings."""
 
     model: str
@@ -230,7 +223,6 @@ class EmbeddingData(BaseModel):
 
 
 class EmbeddingResponse(BaseModel):
-    """Response schema for /v1/embeddings."""
     """Response envelope for POST /v1/embeddings."""
 
     object: str = "list"
