@@ -62,7 +62,14 @@ class ChatCompletionRequest(BaseModel):
     @field_validator("n")
     @classmethod
     def single_completion_only(cls, v: int) -> int:
-        """Reject n>1; NPU pipeline runs one inference at a time."""
+        """
+        Reject n>1; NPU pipeline runs one inference at a time.
+        
+        Args:
+            v: The value of 'n' to validate.
+        Returns:
+            The validated value of 'n'.
+        """
         if v != 1:
             raise ValueError("n>1 not supported; NPU runs single inference only.")
         return v

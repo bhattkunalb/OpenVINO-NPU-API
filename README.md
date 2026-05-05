@@ -6,7 +6,7 @@ A superlight, production-ready **OpenAI-compatible inference API** for OpenVINO 
 
 ## Architecture
 
-```
+```text
 app/
 ├── main.py          # FastAPI app, lifespan, NPU validation, router mount
 ├── api.py           # Route handlers, SSE streaming, request/response wiring
@@ -29,17 +29,19 @@ Dockerfile
 ### 1. Prerequisites
 
 | Requirement | Version |
-|---|---|
+| :--- | :--- |
 | Python | 3.10+ |
 | openvino | ≥ 2024.3.0 |
 | openvino-genai | ≥ 2024.3.0 |
 | Intel NPU driver | Platform-specific (see below) |
 
 **Intel NPU driver installation:**
+
 - **Windows**: Install the [Intel NPU Driver for Windows](https://www.intel.com/content/www/us/en/download/794734/intel-npu-driver-windows.html)
 - **Linux**: Install `intel-driver-compiler-npu` and `intel-fw-npu` from the Intel NPU Linux driver repo
 
 Verify OpenVINO can see the NPU:
+
 ```python
 import openvino as ov
 print(ov.Core().available_devices)  # must include "NPU"
@@ -54,6 +56,7 @@ pip install -r requirements.txt
 ### 3. Configure models
 
 Edit `models.yaml` – set the `path` fields to your local OV model directories:
+
 ```yaml
 - name: qwen3-2.5b
   path: /models/Qwen3-2.5B-OV      # directory with OV IR files + tokenizer
@@ -72,7 +75,7 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1
 ### 5. Environment variables
 
 | Variable | Default | Description |
-|---|---|---|
+| :--- | :--- | :--- |
 | `OPENVINO_API_MODEL_CONFIG` | `models.yaml` | Path to registry file |
 | `OPENVINO_API_DEVICE` | `NPU` | OpenVINO device string |
 | `OPENVINO_API_LOG_LEVEL` | `INFO` | Python logging level |
@@ -85,27 +88,32 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1
 ## API Reference
 
 ### Health check
-```
+
+```text
 GET /health
 ```
 
 ### List models
-```
+
+```text
 GET /v1/models
 ```
 
 ### Chat completions (OpenAI-compatible)
-```
+
+```text
 POST /v1/chat/completions
 ```
 
 ### Responses API
-```
+
+```text
 POST /v1/responses
 ```
 
 ### Embeddings (only active if an embedding model is registered)
-```
+
+```text
 POST /v1/embeddings
 ```
 
@@ -114,6 +122,7 @@ POST /v1/embeddings
 ## Example `curl` Requests
 
 ### Chat completion (non-streaming)
+
 ```bash
 curl http://localhost:8000/v1/chat/completions \
   -H "Content-Type: application/json" \
@@ -129,6 +138,7 @@ curl http://localhost:8000/v1/chat/completions \
 ```
 
 ### Chat completion (streaming)
+
 ```bash
 curl http://localhost:8000/v1/chat/completions \
   -H "Content-Type: application/json" \
@@ -141,7 +151,8 @@ curl http://localhost:8000/v1/chat/completions \
   }'
 ```
 
-### Responses API
+### Responses API Example
+
 ```bash
 curl http://localhost:8000/v1/responses \
   -H "Content-Type: application/json" \
@@ -152,7 +163,8 @@ curl http://localhost:8000/v1/responses \
   }'
 ```
 
-### Embeddings
+### Embeddings Example
+
 ```bash
 curl http://localhost:8000/v1/embeddings \
   -H "Content-Type: application/json" \
@@ -167,6 +179,7 @@ curl http://localhost:8000/v1/embeddings \
 ## SSE Streaming Consumption
 
 ### Python (httpx)
+
 ```python
 import httpx, json
 
@@ -191,6 +204,7 @@ with httpx.Client(timeout=120) as client:
 ```
 
 ### JavaScript (fetch / browser)
+
 ```js
 const resp = await fetch("http://localhost:8000/v1/chat/completions", {
   method: "POST",
@@ -221,6 +235,7 @@ while (true) {
 ## Adding a New Model (Zero Code Changes)
 
 1. Export your model to OpenVINO IR format:
+
    ```bash
    # Using optimum-intel
    optimum-cli export openvino --model your-hf-repo --task text-generation-with-past /models/your-model-OV
@@ -230,6 +245,7 @@ while (true) {
    ```
 
 2. Add an entry to `models.yaml`:
+
    ```yaml
    - name: my-new-model
      path: /models/your-model-OV
@@ -263,7 +279,7 @@ docker run -d \
 ## NPU Assumptions & OpenVINO Plugin Requirements
 
 | Assumption | Detail |
-|---|---|
+| :--- | :--- |
 | **No CPU fallback** | Service raises `RuntimeError` at startup if NPU plugin is absent. |
 | **Single process** | NPU state is in-process. Run `--workers 1` always. |
 | **Model format** | Models must be in OpenVINO IR (`.xml` + `.bin`) or GenAI compatible directory. |
@@ -274,7 +290,8 @@ docker run -d \
 ## Log Format
 
 Every request emits a structured log line:
-```
+
+```text
 2025-01-01T12:00:00 INFO     app.utils │ request_id=abc123 model=qwen3-2.5b device=NPU
   load_ms=0.1 infer_ms=842.3 total_ms=843.0 cache_hit=True status=ok
 ```
