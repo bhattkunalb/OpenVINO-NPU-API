@@ -1,63 +1,33 @@
-"""Preprocessing hooks: convert API request payloads into raw model prompts."""
+"""Preprocessing: convert API payloads into raw model prompts."""
 
 from __future__ import annotations
 
-from typing import Any, Union
+from typing import Any
 
-from app.schemas import Message
+_ROLE_TAGS = {"system": "<|system|>", "user": "<|user|>", "assistant": "<|assistant|>"}
 
 
 def build_prompt_from_messages(messages: list[dict[str, Any]]) -> str:
-    """
-    Construct a plain-text prompt from a list of chat message dicts.
+    """Build a plain-text prompt from chat message dicts.
 
-    GenAI LLMPipeline accepts this string directly; it applies the model's
-    built-in chat template (minja) internally during generation.
-    This fallback is used for models compiled via the raw Core path.
+    GenAI LLMPipeline applies the model's chat template (minja) internally;
+    this fallback is for models compiled via the raw Core path.
     """
-    parts: list[str] = []
+    parts = []
     for msg in messages:
-        role = msg.get("role", "user")
-        content = msg.get("content", "")
-        if role == "system":
-            parts.append(f"<|system|>\n{content}")
-        elif role == "user":
-            parts.append(f"<|user|>\n{content}")
-        elif role == "assistant":
-            parts.append(f"<|assistant|>\n{content}")
-        else:
-            parts.append(content)
+        tag = _ROLE_TAGS.get(msg.get("role", "user"), "")
+        parts.append(f"{tag}\n{msg.get('content', '')}" if tag else msg.get("content", ""))
     parts.append("<|assistant|>")
     return "\n".join(parts)
 
 
-def build_prompt_from_input(input_: Union[str, list[Message]]) -> str:
-    """Normalize /v1/responses `input` field to a single string prompt."""
-    if isinstance(input_, str):
-        return input_
-    # list[Message] – convert each to dict then build chat prompt
-    return build_prompt_from_messages(
-        [m if isinstance(m, dict) else m.model_dump() for m in input_]
-    )
-
-
 def truncate_to_context(text: str, max_chars: int) -> str:
-    """
-    Hard-truncate prompt to avoid exceeding the context window.
-
-    Character-based heuristic (≈4 chars/token); GenAI performs token-level
-    clipping internally – this is a safety net for very long inputs.
-    Keeps the tail so that the most-recent context is preserved.
-    """
-    if len(text) > max_chars:
-        return text[-max_chars:]
-    return text
+    """Hard-truncate prompt to stay within context window (keeps tail)."""
+    return text[-max_chars:] if len(text) > max_chars else text
 
 
 def normalize_stop_strings(stop: Any) -> list[str]:
-    """Normalize the OpenAI `stop` field (str | list[str] | None) to list[str]."""
+    """Normalize OpenAI `stop` field (str | list[str] | None) to list[str]."""
     if isinstance(stop, list):
         return stop
-    if stop:
-        return [stop]
-    return []
+    return [stop] if stop else []

@@ -1,110 +1,64 @@
-"""
-Pydantic model registry: load, validate, and resolve model entries from YAML.
-
-Field names match the spec exactly:
-  task, device, preprocess_fn, postprocess_fn, context_length, max_tokens
-"""
+"""Pydantic model registry: load and validate model entries from YAML."""
 
 from __future__ import annotations
 
-import json
 import logging
 from pathlib import Path
-from typing import Literal, Optional
+from typing import Literal
 
 import yaml
 from pydantic import BaseModel, field_validator, model_validator
 
 log = logging.getLogger(__name__)
 
-Task = Literal["chat", "completion", "embedding", "vision"]
-PreprocessFn = Literal["default_genai"]  # or "custom:<module.function>"
-PostprocessFn = Literal["default_genai"]  # or "custom:<module.function>"
-
 
 class ModelEntry(BaseModel):
-    """
-    Single model entry in the registry.
-    Fully self-describing: path, task, device, limits, and pipeline hooks.
-    """
-
+    """Single model entry in the registry."""
     name: str
-    path: str                               # path to OV IR directory or HF model id
-    task: Task
+    path: str
+    task: Literal["chat", "completion", "embedding", "vision"]
     input_type: Literal["text", "image", "tensor"] = "text"
     device: str = "NPU"
-    preprocess_fn: str = "default_genai"    # "default_genai" | "custom:<module.fn>"
-    postprocess_fn: str = "default_genai"   # "default_genai" | "custom:<module.fn>"
+    preprocess_fn: str = "default_genai"
+    postprocess_fn: str = "default_genai"
     max_tokens: int = 2048
     context_length: int = 4096
-    # Optional fields
-    image_size: Optional[int] = None
-    lora_adapters: Optional[list[str]] = None
+    image_size: int | None = None
+    lora_adapters: list[str] | None = None
 
     @field_validator("device")
     @classmethod
-    def uppercase_device(cls, v: str) -> str:
-        """Normalise device string to uppercase (NPU, CPU, GPU)."""
+    def _uppercase_device(cls, v: str) -> str:
         return v.upper()
 
     @model_validator(mode="after")
-    def validate_custom_fns(self) -> "ModelEntry":
-        """
-        Ensure custom:<module.function> references are well-formed.
-        Format: 'custom:some.module.function_name'
-        """
-        for field_name, val in [
-            ("preprocess_fn", self.preprocess_fn),
-            ("postprocess_fn", self.postprocess_fn),
-        ]:
-            if val.startswith("custom:"):
-                ref = val.split(":", 1)[1]
-                if "." not in ref:
-                    raise ValueError(
-                        f"[{self.name}] {field_name}='{val}' must be "
-                        f"'custom:<module.function>' (e.g. custom:app.hooks.my_fn)"
-                    )
+    def _validate_custom_fns(self) -> "ModelEntry":
+        for attr in ("preprocess_fn", "postprocess_fn"):
+            val = getattr(self, attr)
+            if val.startswith("custom:") and "." not in val.split(":", 1)[1]:
+                raise ValueError(f"[{self.name}] {attr}='{val}' must be 'custom:<module.fn>'")
         return self
 
 
 class RegistryConfig(BaseModel):
-    """
-    Top-level config parsed from models.yaml.
-    Ensures all model names are unique.
-    """
-
+    """Top-level config parsed from models.yaml."""
     models: list[ModelEntry]
 
     @model_validator(mode="after")
-    def unique_names(self) -> "RegistryConfig":
-        """Reject duplicate model names at load time."""
+    def _unique_names(self) -> "RegistryConfig":
         names = [m.name for m in self.models]
         if len(names) != len(set(names)):
-            dupes = [n for n in names if names.count(n) > 1]
-            raise ValueError(f"Duplicate model names in registry: {list(set(dupes))}")
+            raise ValueError(f"Duplicate model names: {[n for n in names if names.count(n) > 1]}")
         return self
 
 
 def load_registry(config_path: str | Path) -> RegistryConfig:
-    """Parse and validate models.yaml or models.json into a RegistryConfig."""
+    """Parse and validate models.yaml into a RegistryConfig."""
     path = Path(config_path)
     if not path.exists():
         raise FileNotFoundError(f"Model registry not found: {path.resolve()}")
-
-    if path.suffix in {".yaml", ".yml"}:
-        with path.open("r", encoding="utf-8") as fh:
-            raw = yaml.safe_load(fh)
-    elif path.suffix == ".json":
-        with path.open("r", encoding="utf-8") as fh:
-            raw = json.load(fh)
-    else:
-        raise ValueError(f"Unsupported registry format: '{path.suffix}'. Use .yaml or .json")
-
+    with path.open("r", encoding="utf-8") as fh:
+        raw = yaml.safe_load(fh)
     cfg = RegistryConfig.model_validate(raw)
-    log.info("Registry loaded: %d model(s).", len(cfg.models))
-    for entry in cfg.models:
-        log.info(
-            "  %-24s task=%-10s device=%s  path=%s",
-            entry.name, entry.task, entry.device, entry.path,
-        )
+    log.info("Registry: %d model(s) loaded.", len(cfg.models))
     return cfg

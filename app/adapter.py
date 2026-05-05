@@ -1,156 +1,97 @@
-"""
-OpenAI adapter layer: translate between OpenAI request/response formats and
-the internal pipeline format.
+"""OpenAI adapter: translate between OpenAI and internal formats.
 
-This module is intentionally isolated:
-  - No FastAPI imports
-  - No inference logic
-  - Fully testable without a live model
+Isolation contract: NO imports from model_manager, pipeline, or registry.
 """
 
 from __future__ import annotations
 
 import time
 import uuid
-from typing import Any, Optional
 
 from app.schemas import (
-    ChatCompletionChoice,
-    ChatCompletionResponse,
-    CompletionChoice,
-    CompletionResponse,
-    EmbeddingData,
-    EmbeddingResponse,
-    Message,
-    OutputText,
-    ResponseObject,
-    ResponseOutput,
-    ResponseRequest,
+    ChatCompletionChoice, ChatCompletionResponse,
+    CompletionChoice, CompletionResponse,
+    EmbeddingData, EmbeddingResponse,
+    Message, OutputText, ResponseObject, ResponseOutput, ResponseRequest,
     UsageInfo,
 )
 
 
-# ---------------------------------------------------------------------------
-# Request adaptation
-# ---------------------------------------------------------------------------
+def _token_estimate(text: str) -> int:
+    """Coarse token count (~4 chars/token) for usage reporting."""
+    return max(1, len(text) // 4)
 
-def messages_to_dicts(messages: list[Message]) -> list[dict[str, Any]]:
+
+def _usage(prompt: str, completion: str) -> UsageInfo:
+    """Build UsageInfo from prompt and completion text."""
+    p, c = _token_estimate(prompt), _token_estimate(completion)
+    return UsageInfo(prompt_tokens=p, completion_tokens=c, total_tokens=p + c)
+
+
+# Request adaptation
+
+def messages_to_dicts(messages: list[Message]) -> list[dict]:
     """Convert list[Message] to list[dict] for pipeline consumption."""
     return [m.model_dump() for m in messages]
 
 
-def response_input_to_messages(body: ResponseRequest) -> list[dict[str, Any]]:
-    """
-    Normalize the flexible ResponseRequest.input field into a list[dict].
-    Handles str (single user turn) and list[Message] (full conversation).
-    """
+def response_input_to_messages(body: ResponseRequest) -> list[dict]:
+    """Normalize ResponseRequest.input into list[dict]."""
     if isinstance(body.input, str):
         return [{"role": "user", "content": body.input}]
     return [m.model_dump() if not isinstance(m, dict) else m for m in body.input]
 
 
 def completion_input_to_prompt(prompt: str | list[str]) -> str:
-    """Normalize OpenAI completion prompt (str | list[str]) to a single string."""
-    if isinstance(prompt, list):
-        return "\n".join(prompt)
-    return prompt
+    """Normalize completion prompt (str | list[str]) to a single string."""
+    return "\n".join(prompt) if isinstance(prompt, list) else prompt
 
 
-# ---------------------------------------------------------------------------
 # Response construction
-# ---------------------------------------------------------------------------
 
 def make_chat_response(
-    model: str,
-    text: str,
-    prompt: str,
-    request_id: Optional[str] = None,
+    model: str, text: str, prompt: str, request_id: str | None = None,
 ) -> ChatCompletionResponse:
-    """Build a non-streaming ChatCompletionResponse from raw generated text."""
-    rid = request_id or uuid.uuid4().hex[:16]
-    p_tok = _token_estimate(prompt)
-    c_tok = _token_estimate(text)
+    """Build a non-streaming ChatCompletionResponse."""
     return ChatCompletionResponse(
-        id=f"chatcmpl-{rid}",
+        id=f"chatcmpl-{request_id or uuid.uuid4().hex[:16]}",
         model=model,
-        choices=[
-            ChatCompletionChoice(
-                message=Message(role="assistant", content=text),
-                finish_reason="stop",
-            )
-        ],
-        usage=UsageInfo(
-            prompt_tokens=p_tok,
-            completion_tokens=c_tok,
-            total_tokens=p_tok + c_tok,
-        ),
+        choices=[ChatCompletionChoice(message=Message(role="assistant", content=text))],
+        usage=_usage(prompt, text),
     )
 
 
 def make_completion_response(
-    model: str,
-    text: str,
-    prompt: str,
-    request_id: Optional[str] = None,
+    model: str, text: str, prompt: str, request_id: str | None = None,
 ) -> CompletionResponse:
-    """Build a non-streaming CompletionResponse from raw generated text."""
-    rid = request_id or uuid.uuid4().hex[:16]
-    p_tok = _token_estimate(prompt)
-    c_tok = _token_estimate(text)
+    """Build a non-streaming CompletionResponse."""
     return CompletionResponse(
-        id=f"cmpl-{rid}",
+        id=f"cmpl-{request_id or uuid.uuid4().hex[:16]}",
         model=model,
-        choices=[CompletionChoice(text=text, finish_reason="stop")],
-        usage=UsageInfo(
-            prompt_tokens=p_tok,
-            completion_tokens=c_tok,
-            total_tokens=p_tok + c_tok,
-        ),
+        choices=[CompletionChoice(text=text)],
+        usage=_usage(prompt, text),
     )
 
 
 def make_response_object(
-    model: str,
-    text: str,
-    prompt: str,
-    request_id: Optional[str] = None,
+    model: str, text: str, prompt: str, request_id: str | None = None,
 ) -> ResponseObject:
-    """Build a ResponseObject (for /v1/responses) from raw generated text."""
-    rid = request_id or uuid.uuid4().hex[:16]
-    p_tok = _token_estimate(prompt)
-    c_tok = _token_estimate(text)
+    """Build a ResponseObject for /v1/responses."""
     return ResponseObject(
-        id=f"resp-{rid}",
-        created_at=int(time.time()),
-        model=model,
+        id=f"resp-{request_id or uuid.uuid4().hex[:16]}",
+        created_at=int(time.time()), model=model,
         output=[ResponseOutput(content=[OutputText(text=text)])],
-        usage=UsageInfo(
-            prompt_tokens=p_tok,
-            completion_tokens=c_tok,
-            total_tokens=p_tok + c_tok,
-        ),
+        usage=_usage(prompt, text),
     )
 
 
 def make_embedding_response(
-    model: str,
-    vectors: list[list[float]],
-    inputs: list[str],
+    model: str, vectors: list[list[float]], inputs: list[str],
 ) -> EmbeddingResponse:
     """Build an EmbeddingResponse from raw embedding vectors."""
-    data = [EmbeddingData(index=i, embedding=vec) for i, vec in enumerate(vectors)]
-    total_tokens = sum(_token_estimate(t) for t in inputs)
+    total = sum(_token_estimate(t) for t in inputs)
     return EmbeddingResponse(
-        data=data,
+        data=[EmbeddingData(index=i, embedding=v) for i, v in enumerate(vectors)],
         model=model,
-        usage=UsageInfo(prompt_tokens=total_tokens, total_tokens=total_tokens),
+        usage=UsageInfo(prompt_tokens=total, total_tokens=total),
     )
-
-
-# ---------------------------------------------------------------------------
-# Internal helpers
-# ---------------------------------------------------------------------------
-
-def _token_estimate(text: str) -> int:
-    """Coarse token count (≈4 chars/token) for usage reporting."""
-    return max(1, len(text) // 4)
