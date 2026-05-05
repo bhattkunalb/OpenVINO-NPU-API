@@ -50,149 +50,6 @@ app/
 
 ---
 
-## 🔄 Export Models to OpenVINO IR
-
-This service requires models in OpenVINO Intermediate Representation (IR) format (`.xml` + `.bin`) or Hugging Face paths compatible with `openvino-genai`.
-
-Use the `optimum-cli` tool to export and quantize models for NPU execution.
-
-### Prerequisites
-
-```bash
-pip install -U optimum[openvino] nncf openvino-tokenizers
-```
-
-> 💡 **NPU Optimization Tip**: Use `--weight-format int4` for 2-4x memory reduction with minimal accuracy loss on NPU. Always include `--trust-remote-code` for Qwen/Gemma architectures.
-
----
-
-### ✅ Qwen 3.5 2B (Chat/Completion)
-
-```bash
-# Export with INT4 quantization (recommended for NPU)
-optimum-cli export openvino \
-  --model Qwen/Qwen3-2B \
-  --weight-format int4 \
-  --trust-remote-code \
-  --task text-generation-with-past \
-  ./models/qwen3-2b-ov
-
-# Optional: Verify export
-ls -lh ./models/qwen3-2b-ov/
-# Should show: openvino_model.xml + openvino_model.bin (~1.2GB for INT4)
-```
-
-### ✅ Qwen 2.5 1.5B (Worker/Utility)
-
-```bash
-optimum-cli export openvino \
-  --model Qwen/Qwen2.5-1.5B-Instruct \
-  --weight-format int4 \
-  --trust-remote-code \
-  --task text-generation-with-past \
-  ./models/qwen2.5-1.5b-ov
-```
-
-### ✅ Gemma 4 2B (Verifier/Critique)
-
-```bash
-optimum-cli export openvino \
-  --model google/gemma-2-2b-it \
-  --weight-format int4 \
-  --trust-remote-code \
-  --task text-generation-with-past \
-  ./models/gemma4-2b-ov
-```
-
-> ⚠️ **Gemma Note**: Use `gemma-2-2b-it` (Instruct-Tuned) for chat/completion tasks. The base `gemma-2-2b` model lacks chat templates.
-
----
-
-### 📋 Example `models.yaml` Entry
-
-After export, add to your `models.yaml`:
-
-```yaml
-models:
-  - name: qwen3-2.5b
-    path: ./models/qwen3-2b-ov
-    task: chat
-    input_type: text
-    device: NPU
-    preprocess_fn: default_genai
-    postprocess_fn: default_genai
-    max_tokens: 2048
-    context_length: 32768
-
-  - name: qwen2.5-1.5b
-    path: ./models/qwen2.5-1.5b-ov
-    task: completion
-    input_type: text
-    device: NPU
-    preprocess_fn: default_genai
-    postprocess_fn: default_genai
-    max_tokens: 1024
-
-  - name: gemma4-2b
-    path: ./models/gemma4-2b-ov
-    task: chat
-    input_type: text
-    device: NPU
-    preprocess_fn: default_genai
-    postprocess_fn: default_genai
-    max_tokens: 512
-```
-
----
-
-### 🧪 Quick Validation Test
-
-```bash
-# After export, test model loads in OpenVINO
-python -c "
-from openvino.runtime import Core
-from openvino_genai import LLMPipeline
-
-core = Core()
-model = core.read_model('./models/qwen3-2b-ov/openvino_model.xml')
-compiled = core.compile_model(model, 'NPU')  # or 'CPU' for testing
-print('✓ Model compiled successfully')
-"
-```
-
----
-
-### 🚨 Troubleshooting Export
-
-| Issue | Solution |
-| :--- | :--- |
-| `--trust-remote-code` error | Update `optimum`: `pip install -U optimum[openvino]` |
-| Out of memory during export | Add `--per-channel` to INT4 quantization: `--weight-format int4 --per-channel` |
-| Missing tokenizer files | Export with `--library transformers` or ensure `tokenizer_config.json` is present |
-| NPU compilation fails at runtime | Verify `openvino-intel-npu` is installed: `pip install openvino-intel-npu` |
-| Chat template not applied | Ensure model has `chat_template` in `tokenizer_config.json`; GenAI uses minja engine automatically |
-
----
-
-### 📦 Alternative: Use Pre-Exported Models (If Available)
-
-If you prefer not to export locally, check:
-- [Open Model Zoo](https://github.com/openvinotoolkit/open_model_zoo)
-- [Hugging Face OpenVINO collections](https://huggingface.co/models?library=openvino)
-- Community exports (verify integrity before use)
-
----
-
-### ✅ Final Checklist Before Running Service
-
-- [ ] Models exported to `./models/<name>-ov/` with `.xml` + `.bin`
-- [ ] `models.yaml` updated with correct paths and task types
-- [ ] NPU driver installed: `pip install openvino-intel-npu`
-- [ ] BIOS has NPU enabled (check with `lspci | grep -i npu` on Linux)
-- [ ] Server started with `--workers 1`: `uvicorn app.main:app --workers 1`
-
----
-
 ## Environment Variables
 
 | Variable | Default | Description |
@@ -472,6 +329,108 @@ curl http://localhost:4647/v1/embeddings \
 | **Batch size** | Fixed at 1. No dynamic batching. |
 | **Plugin package** | `openvino-intel-npu` must be installed alongside `openvino`. |
 | **BIOS/firmware** | Intel NPU must be enabled in BIOS. Driver: `intel-npu-driver`. |
+
+---
+
+## 🔄 Export Models to OpenVINO IR
+
+This service requires models in OpenVINO Intermediate Representation (IR) format (`.xml` + `.bin`) or Hugging Face paths compatible with `openvino-genai`.
+
+### Prerequisites
+```bash
+pip install -U "optimum[openvino]" nncf openvino-tokenizers
+```
+
+> 💡 **NPU Optimization**: Always use `--weight-format int4` for 2-4x memory reduction with minimal accuracy loss. Include `--trust-remote-code` for Qwen/Gemma architectures.
+
+### ✅ Qwen 3.5 2B (Chat/Completion)
+```bash
+optimum-cli export openvino \
+  --model Qwen/Qwen3-2B \
+  --weight-format int4 \
+  --trust-remote-code \
+  --task text-generation-with-past \
+  ./models/qwen3-2b-ov
+```
+
+### ✅ Qwen 2.5 1.5B (Worker/Utility)
+```bash
+optimum-cli export openvino \
+  --model Qwen/Qwen2.5-1.5B-Instruct \
+  --weight-format int4 \
+  --trust-remote-code \
+  --task text-generation-with-past \
+  ./models/qwen2.5-1.5b-ov
+```
+
+### ✅ Gemma 4 2B (Verifier/Critique)
+```bash
+optimum-cli export openvino \
+  --model google/gemma-2-2b-it \
+  --weight-format int4 \
+  --trust-remote-code \
+  --task text-generation-with-past \
+  ./models/gemma4-2b-ov
+```
+
+> ⚠️ **Gemma Note**: Use `gemma-2-2b-it` (Instruct-Tuned). The base `gemma-2-2b` lacks chat templates.
+
+### 📋 Example `models.yaml` Entries
+```yaml
+models:
+  - name: qwen3-2.5b
+    path: ./models/qwen3-2b-ov
+    task: chat
+    input_type: text
+    device: NPU
+    preprocess_fn: default_genai
+    postprocess_fn: default_genai
+    max_tokens: 2048
+    context_length: 32768
+
+  - name: qwen2.5-1.5b
+    path: ./models/qwen2.5-1.5b-ov
+    task: completion
+    input_type: text
+    device: NPU
+    preprocess_fn: default_genai
+    postprocess_fn: default_genai
+    max_tokens: 1024
+
+  - name: gemma4-2b
+    path: ./models/gemma4-2b-ov
+    task: chat
+    input_type: text
+    device: NPU
+    preprocess_fn: default_genai
+    postprocess_fn: default_genai
+    max_tokens: 512
+```
+
+### 🧪 Quick Validation
+```bash
+# Test model loads in OpenVINO
+python -c "
+from openvino.runtime import Core
+core = Core()
+model = core.read_model('./models/qwen3-2b-ov/openvino_model.xml')
+compiled = core.compile_model(model, 'NPU')
+print('✓ Model compiled successfully')
+"
+```
+
+### 🚨 Troubleshooting Export
+
+| Issue | Solution |
+|-------|----------|
+| `--trust-remote-code` error | Update: `pip install -U "optimum[openvino]"` |
+| Out of memory during export | Add `--per-channel`: `--weight-format int4 --per-channel` |
+| Missing tokenizer files | Ensure `tokenizer_config.json` is present in model dir |
+| NPU compilation fails at runtime | Install plugin: `pip install openvino-intel-npu` |
+| Chat template not applied | Verify `chat_template` exists in `tokenizer_config.json` |
+
+> 🔐 **Security**: Always verify model hashes and sources before using pre-exported weights.
+
 
 ---
 
