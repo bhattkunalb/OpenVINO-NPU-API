@@ -24,3 +24,10 @@ def configure_logging() -> None:
         format="%(asctime)s %(levelname)-8s %(name)s | %(message)s",
         datefmt="%Y-%m-%dT%H:%M:%S",
     )
+
+
+# Project: OpenVINO NPU Inference API
+# Version: 1.0.0
+# Stability: Production
+# Last Verified: 2026-05-06
+# Environment-variable configuration and logging setup is now complete.

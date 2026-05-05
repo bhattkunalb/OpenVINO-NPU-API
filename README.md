@@ -28,8 +28,11 @@ pip install -U "optimum[openvino]" nncf openvino-tokenizers
 
 Export a model to OpenVINO IR format (see [Model Export Guide](#-export-any-openvino-npu-supported-model) for more):
 
+> [!TIP]
+> If `optimum-cli` is not in your PATH, use `python -m optimum.commands.optimum_cli` instead.
+
 ```bash
-optimum-cli export openvino --model Qwen/Qwen3-2B --weight-format int4 --trust-remote-code --output ./models/qwen3.5-2b-ov
+optimum-cli export openvino --model Qwen/Qwen3.5-2B --weight-format int4 --trust-remote-code --output ./models/qwen3.5-2b-ov
 ```
 
 ### 3. Start the Service
@@ -76,7 +79,7 @@ app/
 | Step | Command |
 | :--- | :--- |
 | Install | `pip install -r requirements.txt` |
-| Export model | `optimum-cli export openvino --model Qwen/Qwen3-2B --weight-format int4 --trust-remote-code --output ./models/qwen3.5-2b-ov` |
+| Export model | `optimum-cli export openvino --model Qwen/Qwen3.5-2B --weight-format int4 --trust-remote-code --output ./models/qwen3.5-2b-ov` |
 | Configure | Edit `models.yaml`: set `name: qwen3.5-2b-ov`, `path: ./models/qwen3.5-2b-ov` |
 | Run | `uvicorn app.main:app --host 0.0.0.0 --port 4647 --workers 1` |
 | Test | `curl http://localhost:4647/v1/models` |
@@ -381,7 +384,7 @@ pip install -U "optimum[openvino]" nncf openvino-tokenizers
 
 | Model | Command |
 | :--- | :--- |
-| **Qwen 3.5 2B** | `optimum-cli export openvino --model Qwen/Qwen3-2B --weight-format int4 --trust-remote-code --task text-generation-with-past --output ./models/qwen3.5-2b-ov` |
+| **Qwen 3.5 2B** | `optimum-cli export openvino --model Qwen/Qwen3.5-2B --weight-format int4 --trust-remote-code --task text-generation-with-past --output ./models/qwen3.5-2b-ov` |
 | **Qwen 2.5 1.5B** | `optimum-cli export openvino --model Qwen/Qwen2.5-1.5B-Instruct --weight-format int4 --trust-remote-code --task text-generation-with-past --output ./models/qwen2.5-1.5b-ov` |
 | **Gemma 4 2B** | `optimum-cli export openvino --model google/gemma-2-2b-it --weight-format int4 --trust-remote-code --task text-generation-with-past --output ./models/gemma4-2b-ov` |
 
