@@ -18,3 +18,4 @@ htmlcov/
 trace.json
 trace.json.gz
 heapsnapshot
+ov-env/
