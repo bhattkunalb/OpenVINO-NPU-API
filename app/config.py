@@ -20,6 +20,6 @@ def configure_logging() -> None:
     """Apply global structured log format."""
     logging.basicConfig(
         level=getattr(logging, LOG_LEVEL, logging.INFO),
-        format="%(asctime)s %(levelname)-8s %(name)s │ %(message)s",
+        format="%(asctime)s %(levelname)-8s %(name)s | %(message)s",
         datefmt="%Y-%m-%dT%H:%M:%S",
     )
