@@ -10,29 +10,29 @@ from pydantic import BaseModel, Field
 
 
 class Message(BaseModel):
-    """A single chat message."""
+    """A single chat message with a role and content."""
     role: Literal["system", "user", "assistant", "tool"]
     content: str
 
 class UsageInfo(BaseModel):
-    """Token usage counters."""
+    """Token usage counters for a request/response."""
     prompt_tokens: int = 0
     completion_tokens: int = 0
     total_tokens: int = 0
 
 class ErrorDetail(BaseModel):
-    """Inner error object."""
+    """Details about a specific error."""
     message: str
     type: str = "server_error"
     param: str | None = None
     code: str | None = None
 
 class ErrorResponse(BaseModel):
-    """Top-level error envelope."""
+    """Standard error response envelope."""
     error: ErrorDetail
 
 class ChatCompletionRequest(BaseModel):
-    """POST /v1/chat/completions request."""
+    """Parameters for creating a chat completion."""
     model: str
     messages: list[Message]
     max_tokens: int | None = Field(None, ge=1, le=32768)
@@ -43,14 +43,14 @@ class ChatCompletionRequest(BaseModel):
     n: int = Field(1, ge=1, le=1)
 
 class ChatCompletionChoice(BaseModel):
-    """Single choice in chat completion response."""
+    """A single result choice for a chat completion."""
     index: int = 0
     message: Message
     finish_reason: str | None = "stop"
     logprobs: None = None
 
 class ChatCompletionResponse(BaseModel):
-    """POST /v1/chat/completions response."""
+    """A full response object for a chat completion."""
     id: str = Field(default_factory=lambda: f"chatcmpl-{uuid.uuid4().hex[:16]}")
     object: str = "chat.completion"
     created: int = Field(default_factory=lambda: int(time.time()))
@@ -59,7 +59,7 @@ class ChatCompletionResponse(BaseModel):
     usage: UsageInfo
 
 class CompletionRequest(BaseModel):
-    """POST /v1/completions request."""
+    """Parameters for creating a completion."""
     model: str
     prompt: str | list[str]
     max_tokens: int | None = Field(None, ge=1, le=32768)
@@ -70,14 +70,14 @@ class CompletionRequest(BaseModel):
     n: int = Field(1, ge=1, le=1)
 
 class CompletionChoice(BaseModel):
-    """Single choice in completion response."""
+    """A single result choice for a completion."""
     index: int = 0
     text: str
     finish_reason: str | None = "stop"
     logprobs: dict | None = None
 
 class CompletionResponse(BaseModel):
-    """POST /v1/completions response."""
+    """A full response object for a completion."""
     id: str = Field(default_factory=lambda: f"cmpl-{uuid.uuid4().hex[:16]}")
     object: str = "text_completion"
     created: int = Field(default_factory=lambda: int(time.time()))
@@ -86,7 +86,7 @@ class CompletionResponse(BaseModel):
     usage: UsageInfo
 
 class ResponseRequest(BaseModel):
-    """POST /v1/responses request."""
+    """Parameters for creating a response object."""
     model: str
     input: str | list[Message]
     max_output_tokens: int | None = Field(None, ge=1, le=32768)
@@ -95,18 +95,18 @@ class ResponseRequest(BaseModel):
     stream: bool = False
 
 class OutputText(BaseModel):
-    """Text content block inside ResponseOutput."""
+    """A text segment of the response output."""
     type: str = "output_text"
     text: str
 
 class ResponseOutput(BaseModel):
-    """Output message in /v1/responses."""
+    """A single output object in the response list."""
     type: str = "message"
     role: str = "assistant"
     content: list[OutputText]
 
 class ResponseObject(BaseModel):
-    """POST /v1/responses response."""
+    """A full response object for the /v1/responses endpoint."""
     id: str = Field(default_factory=lambda: f"resp-{uuid.uuid4().hex[:16]}")
     object: str = "response"
     created_at: int = Field(default_factory=lambda: int(time.time()))
@@ -115,32 +115,32 @@ class ResponseObject(BaseModel):
     usage: UsageInfo
 
 class EmbeddingRequest(BaseModel):
-    """POST /v1/embeddings request."""
+    """Parameters for creating an embedding."""
     model: str
     input: str | list[str]
     encoding_format: Literal["float", "base64"] = "float"
 
 class EmbeddingData(BaseModel):
-    """Single embedding vector."""
+    """A single embedding vector object."""
     object: str = "embedding"
     index: int
     embedding: list[float]
 
 class EmbeddingResponse(BaseModel):
-    """POST /v1/embeddings response."""
+    """A full response object for the /v1/embeddings endpoint."""
     object: str = "list"
     data: list[EmbeddingData]
     model: str
     usage: UsageInfo
 
 class ModelCard(BaseModel):
-    """Metadata for a registered model."""
+    """Metadata for a registered OpenVINO model."""
     id: str
     object: str = "model"
     created: int = Field(default_factory=lambda: int(time.time()))
     owned_by: str = "local"
 
 class ModelListResponse(BaseModel):
-    """GET /v1/models response."""
+    """A list of available models."""
     object: str = "list"
     data: list[ModelCard]
