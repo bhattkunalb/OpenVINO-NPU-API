@@ -369,7 +369,9 @@ curl http://localhost:4647/v1/embeddings \
 
 ## 🔄 Export Any OpenVINO NPU-Supported Model
 
-This service works with **any model exported to OpenVINO IR**. The commands below are common examples, but you are not limited to them.
+> 🌐 **Broad Model Support**: Any Hugging Face model exportable via `optimum-cli` works (Llama 3.2, Phi-3, Mistral, StarCoder2, etc.), not just the examples below.
+
+This service works with **any model exportable to OpenVINO IR** via `optimum-cli`.
 
 ### Prerequisites
 
@@ -377,44 +379,17 @@ This service works with **any model exported to OpenVINO IR**. The commands belo
 pip install -U "optimum[openvino]" nncf openvino-tokenizers
 ```
 
-> 💡 **NPU Optimization**: Always use `--weight-format int4` for 2-4x memory reduction with minimal accuracy loss. Include `--trust-remote-code` for Qwen/Gemma architectures.
+### ✅ Exact Export Commands (with `--output`)
 
-### ✅ Qwen 3.5 2B (Chat/Completion)
+| Model | Command |
+| :--- | :--- |
+| **Qwen 3.5 2B** | `optimum-cli export openvino --model Qwen/Qwen3-2B --weight-format int4 --trust-remote-code --task text-generation-with-past --output ./models/qwen3.5-2b-ov` |
+| **Qwen 2.5 1.5B** | `optimum-cli export openvino --model Qwen/Qwen2.5-1.5B-Instruct --weight-format int4 --trust-remote-code --task text-generation-with-past --output ./models/qwen2.5-1.5b-ov` |
+| **Gemma 4 2B** | `optimum-cli export openvino --model google/gemma-2-2b-it --weight-format int4 --trust-remote-code --task text-generation-with-past --output ./models/gemma4-2b-ov` |
 
-```bash
-optimum-cli export openvino \
-  --model Qwen/Qwen3-2B \
-  --weight-format int4 \
-  --trust-remote-code \
-  --task text-generation-with-past \
-  --output ./models/qwen3.5-2b-ov
-```
+> 💡 **Tip**: The `--output ./models/<name>-ov` flag ensures paths match your `models.yaml` entries.
 
-### ✅ Qwen 2.5 1.5B (Worker/Utility)
-
-```bash
-optimum-cli export openvino \
-  --model Qwen/Qwen2.5-1.5B-Instruct \
-  --weight-format int4 \
-  --trust-remote-code \
-  --task text-generation-with-past \
-  --output ./models/qwen2.5-1.5b-ov
-```
-
-### ✅ Gemma 4 2B (Verifier/Critique)
-
-```bash
-optimum-cli export openvino \
-  --model google/gemma-2-2b-it \
-  --weight-format int4 \
-  --trust-remote-code \
-  --task text-generation-with-past \
-  --output ./models/gemma4-2b-ov
-```
-
-> ⚠️ **Gemma Note**: Use `gemma-2-2b-it` (Instruct-Tuned). The base `gemma-2-2b` lacks chat templates.
-
-### 📋 Example `models.yaml` Entries
+### 📋 Example `models.yaml` Entries (Updated Names)
 
 ```yaml
 models:
@@ -435,7 +410,6 @@ models:
     device: NPU
     preprocess_fn: default_genai
     postprocess_fn: default_genai
-    max_tokens: 1024
 
   - name: gemma4-2b-ov
     path: ./models/gemma4-2b-ov
@@ -444,7 +418,6 @@ models:
     device: NPU
     preprocess_fn: default_genai
     postprocess_fn: default_genai
-    max_tokens: 512
 ```
 
 ### 🧪 Quick Validation
@@ -454,7 +427,7 @@ models:
 python -c "
 from openvino.runtime import Core
 core = Core()
-model = core.read_model('./models/qwen3-2b-ov/openvino_model.xml')
+model = core.read_model('./models/qwen3.5-2b-ov/openvino_model.xml')
 compiled = core.compile_model(model, 'NPU')
 print('✓ Model compiled successfully')
 "
@@ -560,15 +533,13 @@ for line in response.iter_lines():
 
 ---
 
+---
+
 ## 🎯 OpenAI API Compatibility
-
-This service implements a strict subset of the OpenAI API for maximum client compatibility.
-
-### ✅ Supported Fields & Behavior
 
 | Parameter | Supported | Notes |
 | :--- | :--- | :--- |
-| `model` | ✅ | Must match `name` in `models.yaml` |
+| `model` | ✅ | Must match `name` in `models.yaml` (e.g., `qwen3.5-2b-ov`) |
 | `messages` / `prompt` | ✅ | Chat or completion format |
 | `stream` | ✅ | Enables SSE when `true` |
 | `max_tokens` | ✅ | Approximate limit |
