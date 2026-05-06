@@ -22,15 +22,12 @@ def build_gen_config(
     """Construct an OV GenAI GenerationConfig from OpenAI-style params."""
     cfg = ov_genai.GenerationConfig()
     cfg.max_new_tokens = max_tokens
-    
     do_sample = False
     if temperature is not None and temperature > 0.0:
         cfg.temperature = temperature
         do_sample = True
     if top_p is not None and top_p < 1.0:
         cfg.top_p = top_p
-        do_sample = True
-        
     cfg.do_sample = do_sample
     
     if stop_strings:
@@ -85,11 +82,13 @@ def run_embedding(cached: CachedModel, inputs: list[str]) -> tuple[list[list[flo
     return vectors, (time.perf_counter() - t0) * 1000
 
 
-def _resolve_prompt(data: str | list[dict[str, Any]], cached: CachedModel) -> str | list[dict[str, Any]]:
+def _resolve_prompt(
+    data: str | list[dict[str, Any]], cached: CachedModel
+) -> str | list[dict[str, Any]]:
     """Standardize input to a context-clipped prompt string or raw message list.
     
     If data is a list of messages, pass it through directly to let LLMPipeline
-    apply the model's native chat template (minja).
+    apply the model's native chat template (jinja2).
     """
     if isinstance(data, list):
         return data

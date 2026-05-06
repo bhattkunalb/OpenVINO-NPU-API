@@ -60,11 +60,17 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
     """Enforce OPENVINO_API_KEY if set; skip for /health and /docs."""
 
     async def dispatch(self, request: Request, call_next):
-        if not config.API_KEY or request.url.path in ("/health", "/docs", "/openapi.json", "/redoc"):
+        """Authorize request via API key or skip for public endpoints."""
+        is_public = request.url.path in ("/health", "/docs", "/openapi.json", "/redoc")
+        if not config.API_KEY or is_public:
             return await call_next(request)
+        
         auth = request.headers.get("Authorization")
         if auth != f"Bearer {config.API_KEY}":
-            return JSONResponse(status_code=401, content={"error": {"message": "Invalid API key.", "type": "auth_error"}})
+            return JSONResponse(
+                status_code=401,
+                content={"error": {"message": "Invalid API key.", "type": "auth_error"}}
+            )
         return await call_next(request)
 
 

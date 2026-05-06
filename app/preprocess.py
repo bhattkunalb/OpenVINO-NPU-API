@@ -10,7 +10,7 @@ _ROLE_TAGS = {"system": "<|system|>", "user": "<|user|>", "assistant": "<|assist
 def build_prompt_from_messages(messages: list[dict[str, Any]]) -> str:
     """Build a plain-text prompt from chat message dicts.
 
-    GenAI LLMPipeline applies the model's chat template (minja) internally;
+    GenAI LLMPipeline applies the model's chat template (jinja2) internally;
     this fallback is for models compiled via the raw Core path.
     """
     parts = []
