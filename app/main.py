@@ -42,7 +42,11 @@ def _assert_npu() -> None:
     """Abort startup if NPU plugin is absent."""
     available = ov.Core().available_devices
     log.info("OpenVINO devices: %s", available)
-    if not any(d == config.NPU_DEVICE or d.startswith(config.NPU_DEVICE) for d in available):
+    is_npu = any(
+        d == config.NPU_DEVICE or d.startswith(config.NPU_DEVICE)
+        for d in available
+    )
+    if not is_npu:
         raise RuntimeError(
             f"NPU '{config.NPU_DEVICE}' not found. Available: {available}. "
             "Install intel-npu-driver + openvino-intel-npu. No CPU fallback."
@@ -73,10 +77,8 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
 
         auth = request.headers.get("Authorization")
         if auth != f"Bearer {config.API_KEY}":
-            return JSONResponse(
-                status_code=401,
-                content={"error": {"message": "Invalid API key.", "type": "auth_error"}}
-            )
+            err = {"message": "Invalid API key.", "type": "auth_error"}
+            return JSONResponse(status_code=401, content={"error": err})
         return await call_next(request)
 
 
@@ -97,4 +99,10 @@ async def global_exc(request: Request, exc: Exception) -> JSONResponse:
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("app.main:app", host=config.HOST, port=config.PORT, workers=1, log_config=None)
+    uvicorn.run(
+        "app.main:app",
+        host=config.HOST,
+        port=config.PORT,
+        workers=1,
+        log_config=None
+    )

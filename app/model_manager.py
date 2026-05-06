@@ -35,6 +35,7 @@ class CachedModel:
 
     @property
     def avg_infer_ms(self) -> float:
+        """Calculate mean latency over all recorded inferences."""
         return self.total_infer_ms / self.infer_count if self.infer_count else 0.0
 
 
@@ -77,13 +78,16 @@ class ModelManager:
                 cm.total_infer_ms += elapsed_ms
 
     def list_loaded(self) -> list[str]:
+        """Return names of all models currently in memory."""
         with self._global_lock:
             return list(self._cache)
 
     def all_names(self) -> list[str]:
+        """Return names of all models defined in the registry."""
         return list(self._registry)
 
     def get_entry(self, name: str) -> ModelEntry | None:
+        """Fetch model metadata from the registry by name."""
         return self._registry.get(name)
 
     def _load_and_warm(self, entry: ModelEntry) -> CachedModel:
@@ -104,11 +108,11 @@ class ModelManager:
         """Load embedding model via GenAI or raw Core fallback."""
         try:
             return ov_genai.EmbeddingModel(model_path, device)  # type: ignore[attr-defined]
-        except AttributeError:
+        except (AttributeError, ImportError):
             core = ov.Core()
             xmls = list(Path(model_path).glob("*.xml"))
             if not xmls:
-                raise FileNotFoundError(f"No .xml model in '{model_path}'")
+                raise FileNotFoundError(f"No .xml model in '{model_path}'") from None
             return core.compile_model(str(xmls[0]), device)
 
     @staticmethod
@@ -122,16 +126,13 @@ class ModelManager:
                 cfg.max_new_tokens = 1
                 pipeline.generate("warmup", cfg)
             log.info("[%s] Warm-up complete.", entry.name)
-        except Exception as exc:  # noqa: BLE001
+        except (RuntimeError, ValueError) as exc:
             log.warning("[%s] Warm-up failed (non-fatal): %s", entry.name, exc)
 
 
-_manager: ModelManager | None = None
+_MANAGER = ModelManager()
 
 
 def get_manager() -> ModelManager:
     """Return the process-wide singleton ModelManager."""
-    global _manager
-    if _manager is None:
-        _manager = ModelManager()
-    return _manager
+    return _MANAGER
