@@ -32,17 +32,19 @@ Export a model to OpenVINO IR format (see [Model Export Guide](#-export-any-open
 > If `optimum-cli` is not in your PATH, use `python -m optimum.commands.optimum_cli` instead.
 
 ```bash
-optimum-cli export openvino --model Qwen/Qwen3.5-2B --weight-format int4 --trust-remote-code --output ./models/qwen3.5-2b-ov
+# Example: Export Qwen 2.5 3B (Brain)
+optimum-cli export openvino --model Qwen/Qwen2.5-3B-Instruct --weight-format int4 --trust-remote-code --output ./models/qwen2.5-3b-brain-ov
 ```
+
 
 ### 3. Start the Service
 
-```bash
-# Register your model in models.yaml, then:
+```bash# Register your model in models.yaml, then:
 uvicorn app.main:app --host 0.0.0.0 --port 4647 --workers 1
 ```
 
 ---
+
 
 ## Architecture
 
@@ -79,8 +81,8 @@ app/
 | Step | Command |
 | :--- | :--- |
 | Install | `pip install -r requirements.txt` |
-| Export model | `optimum-cli export openvino --model Qwen/Qwen3.5-2B --weight-format int4 --trust-remote-code --output ./models/qwen3.5-2b-ov` |
-| Configure | Edit `models.yaml`: set `name: qwen3.5-2b-ov`, `path: ./models/qwen3.5-2b-ov` |
+| Export model | `optimum-cli export openvino --model Qwen/Qwen2.5-3B-Instruct --weight-format int4 --trust-remote-code --output ./models/qwen2.5-3b-brain-ov` |
+| Configure | Edit `models.yaml`: set `name: qwen2.5-3b-brain-ov`, `path: ./models/qwen2.5-3b-brain-ov` |
 | Run | `uvicorn app.main:app --host 0.0.0.0 --port 4647 --workers 1` |
 | Test | `curl http://localhost:4647/v1/models` |
 
@@ -147,8 +149,8 @@ curl http://localhost:4647/health
 ```json
 {
   "status": "ok",
-  "loaded_models": ["qwen3.5-2b-ov"],
-  "registered_models": ["qwen3.5-2b-ov", "qwen2.5-1.5b-ov", "gemma4-2b-ov", "bge-m3-ov"]
+  "loaded_models": ["qwen2.5-3b-brain-ov"],
+  "registered_models": ["qwen2.5-3b-brain-ov", "qwen2.5-1.5b-worker-ov", "phi-3-mini-verifier-ov", "phi-3.5-mini-alt-verifier-ov"]
 }
 ```
 
@@ -192,7 +194,7 @@ Configure these tools by pointing them to the local endpoint:
 
 - **API Base**: `http://localhost:4647/v1`
 - **API Key**: `sk-local-npu` (or whatever you set in `OPENVINO_API_KEY`)
-- **brain**: `qwen3.5-2b-ov` (or the name from your `models.yaml`)
+- **brain**: `qwen2.5-3b-brain-ov` (or the name from your `models.yaml`)
 
 ---
 
@@ -206,8 +208,8 @@ curl http://localhost:4647/v1/models
 {
   "object": "list",
   "data": [
-    {"id": "qwen3.5-2b-ov", "object": "model", "created": 1700000000, "owned_by": "local"},
-    {"id": "qwen2.5-1.5b-ov", "object": "model", "created": 1700000000, "owned_by": "local"}
+    {"id": "qwen2.5-3b-brain-ov", "object": "model", "created": 1700000000, "owned_by": "local"},
+    {"id": "qwen2.5-1.5b-worker-ov", "object": "model", "created": 1700000000, "owned_by": "local"}
   ]
 }
 ```
@@ -370,6 +372,41 @@ curl http://localhost:4647/v1/embeddings \
 
 ---
 
+## Robust Model Downloads (Highly Recommended)
+
+If you encounter network timeouts or interrupted downloads during export, follow these steps to enable multi-threaded, resumable transfers.
+
+### 1. Install `hf_xet` and `hf_transfer`
+```powershell
+pip install hf_xet hf_transfer
+```
+
+### 2. Enable HF Transfer (Global Environment)
+```powershell
+# Windows (PowerShell)
+$env:HF_HUB_ENABLE_HF_TRANSFER = "1"
+
+# Linux/macOS
+export HF_HUB_ENABLE_HF_TRANSFER=1
+```
+
+### 3. Pre-Download with Resume Support
+Download the model to a local cache directory before exporting. This ensures that even if the connection drops, you can resume without starting over.
+
+```powershell
+huggingface-cli download Qwen/Qwen2.5-3B-Instruct --local-dir C:\hf-cache\qwen2.5-3b --resume-download
+```
+
+### 4. Export from Local Cache
+Point `optimum-cli` to your local directory instead of the Hugging Face repo ID.
+
+```powershell
+optimum-cli export openvino --model C:\hf-cache\qwen2.5-3b --weight-format int4 --trust-remote-code --task text-generation ./models/qwen2.5-3b-brain-ov
+```
+
+
+---
+
 ## 🔄 Export Any OpenVINO NPU-Supported Model
 
 > 🌐 **Broad Model Support**: Any Hugging Face model exportable via `optimum-cli` works (Llama 3.2, Phi-3, Mistral, StarCoder2, etc.), not just the examples below.
@@ -384,9 +421,10 @@ pip install -U "optimum[openvino]" nncf openvino-tokenizers
 
 | Model | Command |
 | :--- | :--- |
-| **Qwen 3.5 2B** | `optimum-cli export openvino --model Qwen/Qwen3.5-2B --weight-format int4 --trust-remote-code --task text-generation-with-past --output ./models/qwen3.5-2b-ov` |
-| **Qwen 2.5 1.5B** | `optimum-cli export openvino --model Qwen/Qwen2.5-1.5B-Instruct --weight-format int4 --trust-remote-code --task text-generation-with-past --output ./models/qwen2.5-1.5b-ov` |
-| **Gemma 4 2B** | `optimum-cli export openvino --model google/gemma-2-2b-it --weight-format int4 --trust-remote-code --task text-generation-with-past --output ./models/gemma4-2b-ov` |
+| **Qwen 2.5 3B (Brain)** | `optimum-cli export openvino --model Qwen/Qwen2.5-3B-Instruct --weight-format int4 --trust-remote-code --task text-generation-with-past --output ./models/qwen2.5-3b-brain-ov` |
+| **Qwen 2.5 1.5B (Worker)** | `optimum-cli export openvino --model Qwen/Qwen2.5-1.5B-Instruct --weight-format int4 --trust-remote-code --task text-generation-with-past --output ./models/qwen2.5-1.5b-worker-ov` |
+| **Phi 3 Mini (Verifier)** | `optimum-cli export openvino --model microsoft/Phi-3-mini-4k-instruct --weight-format int4 --trust-remote-code --task text-generation-with-past --output ./models/phi-3-mini-verifier-ov` |
+| **Phi 3.5 Mini (Alt Verifier)** | `optimum-cli export openvino --model microsoft/Phi-3.5-mini-instruct --weight-format int4 --trust-remote-code --task text-generation-with-past --output ./models/phi-3.5-mini-alt-verifier-ov` |
 
 > 💡 **Tip**: The `--output ./models/<name>-ov` flag ensures paths match your `models.yaml` entries.
 
@@ -394,8 +432,8 @@ pip install -U "optimum[openvino]" nncf openvino-tokenizers
 
 ```yaml
 models:
-  - name: qwen3.5-2b-ov
-    path: ./models/qwen3.5-2b-ov
+  - name: qwen2.5-3b-brain-ov
+    path: ./models/qwen2.5-3b-brain-ov
     task: chat
     input_type: text
     device: NPU
@@ -404,35 +442,30 @@ models:
     max_tokens: 2048
     context_length: 32768
 
-  - name: qwen2.5-1.5b-ov
-    path: ./models/qwen2.5-1.5b-ov
-    task: completion
-    input_type: text
-    device: NPU
-    preprocess_fn: default_genai
-    postprocess_fn: default_genai
-
-  - name: gemma4-2b-ov
-    path: ./models/gemma4-2b-ov
+  - name: qwen2.5-1.5b-worker-ov
+    path: ./models/qwen2.5-1.5b-worker-ov
     task: chat
     input_type: text
     device: NPU
     preprocess_fn: default_genai
     postprocess_fn: default_genai
+    max_tokens: 1024
 ```
 
 ### 🧪 Quick Validation
+
 
 ```bash
 # Test model loads in OpenVINO
 python -c "
 from openvino.runtime import Core
 core = Core()
-model = core.read_model('./models/qwen3.5-2b-ov/openvino_model.xml')
+model = core.read_model('./models/qwen2.5-3b-brain-ov/openvino_model.xml')
 compiled = core.compile_model(model, 'NPU')
 print('✓ Model compiled successfully')
 "
 ```
+
 
 ### 🚨 Troubleshooting Export
 
@@ -443,12 +476,14 @@ print('✓ Model compiled successfully')
 | Missing tokenizer files | Ensure `tokenizer_config.json` is present in model dir |
 | NPU compilation fails at runtime | Install plugin: `pip install openvino-intel-npu` |
 | Chat template not applied | Verify `chat_template` exists in `tokenizer_config.json` |
+| Connection / Download Failure | See [Robust Model Downloads](#robust-model-downloads-highly-recommended) |
 
 > 🔐 **Security**: Always verify model hashes and sources before using pre-exported weights.
 
 ---
 
 ## 📡 Streaming (Server-Sent Events)
+
 
 This service supports real-time token streaming via SSE for `/v1/chat/completions` and `/v1/responses`.
 
@@ -458,10 +493,11 @@ This service supports real-time token streaming via SSE for `/v1/chat/completion
 curl -N -X POST http://localhost:4647/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "qwen3.5-2b-ov",
+    "model": "qwen2.5-3b-brain-ov",
     "messages": [{"role": "user", "content": "Explain SSE"}],
     "stream": true
   }'
+
 ```
 
 ### Response Format (Exact)
@@ -469,9 +505,10 @@ curl -N -X POST http://localhost:4647/v1/chat/completions \
 ```text
 Content-Type: text/event-stream
 
-data: {"id":"uuid","object":"chat.completion.chunk","created":1234567890,"model":"qwen3.5-2b-ov","choices":[{"index":0,"delta":{"content":"Hello"},"finish_reason":null}]}
+data: {"id":"uuid","object":"chat.completion.chunk","created":1234567890,"model":"qwen2.5-3b-brain-ov","choices":[{"index":0,"delta":{"content":"Hello"},"finish_reason":null}]}
 
-data: {"id":"uuid","object":"chat.completion.chunk","created":1234567890,"model":"qwen3.5-2b-ov","choices":[{"index":0,"delta":{"content":" world"},"finish_reason":null}]}
+data: {"id":"uuid","object":"chat.completion.chunk","created":1234567890,"model":"qwen2.5-3b-brain-ov","choices":[{"index":0,"delta":{"content":" world"},"finish_reason":null}]}
+
 
 data:  [DONE]
 ```
@@ -616,9 +653,11 @@ print(response.choices[0].message.content)  # Should work identically to OpenAI 
 
 | Model | Disk Size | Runtime RAM |
 | :--- | :--- | :--- |
-| Qwen 3.5 2B | ~1.2 GB | ~2.5 GB |
-| Qwen 2.5 1.5B | ~0.9 GB | ~2.0 GB |
-| Gemma 4 2B | ~1.2 GB | ~2.5 GB |
+| Qwen 2.5 3B (Brain) | ~1.8 GB | ~3.5 GB |
+| Qwen 2.5 1.5B (Worker) | ~0.9 GB | ~2.0 GB |
+| Phi 3 Mini (Verifier) | ~2.2 GB | ~4.0 GB |
+| Phi 3.5 Mini (Alt) | ~2.2 GB | ~4.0 GB |
+
 
 > 💡 **Tip**: Total RAM ≈ 2× model size due to KV cache. Ensure 8 GB+ for 2B-class models.
 

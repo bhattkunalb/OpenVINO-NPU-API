@@ -13,11 +13,8 @@
 
 models:
 
-  # ---------------------------------------------------------------------------
-  # Qwen 3.5 2B – primary generation model
-  # ---------------------------------------------------------------------------
-  - name: qwen3.5-2b-ov
-    path: ./models/qwen3.5-2b-ov
+  - name: qwen2.5-3b-brain-ov
+    path: ./models/qwen2.5-3b-brain-ov
     task: chat
     input_type: text
     device: NPU
@@ -26,41 +23,30 @@ models:
     max_tokens: 2048
     context_length: 32768
 
-  # ---------------------------------------------------------------------------
-  # Qwen 2.5 1.5B – lightweight generation model
-  # ---------------------------------------------------------------------------
-  - name: qwen2.5-1.5b-ov
-    path: ./models/qwen2.5-1.5b-ov
+  - name: qwen2.5-1.5b-worker-ov
+    path: ./models/qwen2.5-1.5b-worker-ov
     task: chat
     input_type: text
     device: NPU
     preprocess_fn: default_genai
     postprocess_fn: default_genai
-    max_tokens: 2048
-    context_length: 32768
+    max_tokens: 1024
 
-  # ---------------------------------------------------------------------------
-  # Gemma 4 2B – alternative generation model
-  # ---------------------------------------------------------------------------
-  - name: gemma4-2b-ov
-    path: ./models/gemma4-2b-ov
+  - name: phi-3-mini-verifier-ov
+    path: ./models/phi-3-mini-verifier-ov
     task: chat
-    input_type: text
-    device: NPU
-    preprocess_fn: default_genai
-    postprocess_fn: default_genai
-    max_tokens: 2048
-    context_length: 8192
-
-  # ---------------------------------------------------------------------------
-  # BGE-M3 Embedding – optional; /v1/embeddings only exposed when present
-  # ---------------------------------------------------------------------------
-  - name: bge-m3-ov
-    path: ./models/bge-m3-ov
-    task: embedding
     input_type: text
     device: NPU
     preprocess_fn: default_genai
     postprocess_fn: default_genai
     max_tokens: 512
-    context_length: 8192
+
+  - name: phi-3.5-mini-alt-verifier-ov
+    path: ./models/phi-3.5-mini-alt-verifier-ov
+    task: chat
+    input_type: text
+    device: NPU
+    preprocess_fn: default_genai
+    postprocess_fn: default_genai
+    max_tokens: 512
+
