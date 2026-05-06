@@ -29,7 +29,8 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
     """Manage startup and shutdown of the inference service."""
     log.info("=== OpenVINO NPU API | startup ===")
     _assert_npu()
-    get_manager().register_entries(load_registry(config.MODEL_CONFIG_PATH).models)
+    models = load_registry(config.MODEL_CONFIG_PATH).models
+    get_manager().register_entries(models)
     utils.get_thread_pool()
     log.info("Startup complete.")
     yield
@@ -86,8 +87,11 @@ app.include_router(api.router)
 @app.exception_handler(Exception)
 async def global_exc(request: Request, exc: Exception) -> JSONResponse:
     """Catch-all: return OpenAI-compatible error JSON."""
-    log.error("Unhandled %s %s: %s", request.method, request.url.path, exc, exc_info=True)
-    body = ErrorResponse(error=ErrorDetail(message=str(exc), type="internal_server_error"))
+    log.error(
+        "Unhandled %s %s: %s", request.method, request.url.path, exc, exc_info=True
+    )
+    detail = ErrorDetail(message=str(exc), type="internal_server_error")
+    body = ErrorResponse(error=detail)
     return JSONResponse(status_code=500, content=body.model_dump())
 
 

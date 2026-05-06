@@ -72,8 +72,9 @@ class ModelManager:
         with self._global_lock:
             cm = self._cache.get(name)
         if cm:
-            cm.infer_count += 1
-            cm.total_infer_ms += elapsed_ms
+            with cm.lock:
+                cm.infer_count += 1
+                cm.total_infer_ms += elapsed_ms
 
     def list_loaded(self) -> list[str]:
         with self._global_lock:
