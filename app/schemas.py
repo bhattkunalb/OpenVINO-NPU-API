@@ -186,4 +186,3 @@ class ModelListResponse(BaseModel):
 # Project: OpenVINO NPU Inference API
 # Version: 1.0.0
 # Stability: Production
-

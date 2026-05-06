@@ -76,4 +76,7 @@ def log_request(
         f"load_ms={load_ms:.1f} infer_ms={infer_ms:.1f} total_ms={total_ms:.1f} "
         f"cache_hit={cache_hit} status={status}"
     )
-    log.info("%s error=%r", msg, error) if error else log.info(msg)
+    if error:
+        log.info("%s error=%r", msg, error)
+    else:
+        log.info(msg)

@@ -58,7 +58,7 @@ async def list_models() -> ModelListResponse:
 # Shared inference helper
 
 async def _infer(model: str, msg_dicts: list[dict], body: object) -> tuple:
-    """Run non-streaming generation for any endpoint. 
+    """Run non-streaming generation for any endpoint.
     Returns (text, hit, load_ms, infer_ms, total_ms, cached).
     """
     mgr = get_manager()
@@ -86,7 +86,9 @@ async def _infer(model: str, msg_dicts: list[dict], body: object) -> tuple:
 # /v1/chat/completions
 
 @router.post("/v1/chat/completions", tags=["inference"], responses=_ERR, response_model=None)
-async def chat_completions(body: ChatCompletionRequest) -> ChatCompletionResponse | StreamingResponse:
+async def chat_completions(
+    body: ChatCompletionRequest
+) -> ChatCompletionResponse | StreamingResponse:
     """OpenAI-compatible chat completions with optional SSE streaming."""
     _require_gen(body.model)
     req_id = utils.new_request_id()
@@ -96,17 +98,21 @@ async def chat_completions(body: ChatCompletionRequest) -> ChatCompletionRespons
             headers={"X-Request-ID": req_id, "Cache-Control": "no-cache"},
         )
     msg_dicts = messages_to_dicts(body.messages)
-    text, hit, load_ms, infer_ms, total_ms, cached = await _infer(body.model, msg_dicts, body)
+    text, hit, load_ms, infer_ms, total_ms, cached = await _infer(
+        body.model, msg_dicts, body
+    )
     prompt = build_prompt_from_messages(msg_dicts)
     utils.log_request(
-        req_id, body.model, cached.entry.device, 
+        req_id, body.model, cached.entry.device,
         load_ms, infer_ms, total_ms, hit, "ok"
     )
     return make_chat_response(body.model, text, prompt, req_id)
 
 
 async def _stream_chat(
-    req_id: str, body: ChatCompletionRequest, override_prompt: str | None = None,
+    req_id: str,
+    body: ChatCompletionRequest,
+    override_prompt: str | None = None,
 ) -> AsyncGenerator[str, None]:
     """SSE generator for streaming chat completions."""
     cid = f"chatcmpl-{req_id}"
@@ -139,34 +145,34 @@ async def _stream_chat(
         "model": body.model,
         "choices": [{"index": 0, "delta": {"role": "assistant"}, "finish_reason": None}],
     })
-    
+
     stop_manager = postprocess.StreamStopManager(stop)
     while True:
         token = await queue.get()
         if token is None:
             break
-        
+
         safe_token = stop_manager.process_token(token)
         if safe_token:
             cleaned = postprocess.clean_generation(safe_token)
             if cleaned:
                 yield utils.make_stream_chunk(cid, body.model, cleaned)
-        
+
         if stop_manager.stopped:
             break
-            
+
     final_text = stop_manager.flush()
     if final_text:
         cleaned = postprocess.clean_generation(final_text)
         if cleaned:
             yield utils.make_stream_chunk(cid, body.model, cleaned)
-            
+
     yield utils.make_stream_chunk(cid, body.model, "", finish_reason="stop")
     yield utils.SSE_DONE
 
     hit, load_ms, infer_ms, cached = await future
     utils.log_request(
-        req_id, body.model, cached.entry.device, 
+        req_id, body.model, cached.entry.device,
         load_ms, infer_ms, 0.0, hit, "ok-stream"
     )
 
@@ -182,16 +188,19 @@ async def completions(body: CompletionRequest) -> CompletionResponse | Streaming
     if body.stream:
         adapted = ChatCompletionRequest(
             model=body.model, messages=[], max_tokens=body.max_tokens,
-            temperature=body.temperature, top_p=body.top_p, stream=True, stop=body.stop,
+            temperature=body.temperature, top_p=body.top_p,
+            stream=True, stop=body.stop,
         )
         return StreamingResponse(
             _stream_chat(req_id, adapted, override_prompt=prompt),
             media_type=STREAM_TYPE,
             headers={"X-Request-ID": req_id, "Cache-Control": "no-cache"},
         )
-    text, hit, load_ms, infer_ms, total_ms, cached = await _infer(body.model, prompt, body)
+    text, hit, load_ms, infer_ms, total_ms, cached = await _infer(
+        body.model, prompt, body
+    )
     utils.log_request(
-        req_id, body.model, cached.entry.device, 
+        req_id, body.model, cached.entry.device,
         load_ms, infer_ms, total_ms, hit, "ok"
     )
     return make_completion_response(body.model, text, prompt, req_id)
@@ -207,8 +216,10 @@ async def responses(body: ResponseRequest) -> ResponseObject | StreamingResponse
     if body.stream:
         adapted_dicts = response_input_to_messages(body)
         adapted = ChatCompletionRequest(
-            model=body.model, messages=[Message(**d) for d in adapted_dicts],
-            max_tokens=body.max_output_tokens, temperature=body.temperature,
+            model=body.model,
+            messages=[Message(**d) for d in adapted_dicts],
+            max_tokens=body.max_output_tokens,
+            temperature=body.temperature,
             top_p=body.top_p, stream=True,
         )
         return StreamingResponse(
@@ -216,10 +227,12 @@ async def responses(body: ResponseRequest) -> ResponseObject | StreamingResponse
             headers={"X-Request-ID": req_id, "Cache-Control": "no-cache"},
         )
     msg_dicts = response_input_to_messages(body)
-    text, hit, load_ms, infer_ms, total_ms, cached = await _infer(body.model, msg_dicts, body)
+    text, hit, load_ms, infer_ms, total_ms, cached = await _infer(
+        body.model, msg_dicts, body
+    )
     prompt = build_prompt_from_messages(msg_dicts)
     utils.log_request(
-        req_id, body.model, cached.entry.device, 
+        req_id, body.model, cached.entry.device,
         load_ms, infer_ms, total_ms, hit, "ok"
     )
     return make_response_object(body.model, text, prompt, req_id)
@@ -233,7 +246,9 @@ async def embeddings(body: EmbeddingRequest) -> EmbeddingResponse:
     mgr = get_manager()
     entry = mgr.get_entry(body.model)
     if entry is None or entry.task != "embedding":
-        raise HTTPException(400, f"'{body.model}' is not an embedding model. Use GET /v1/models.")
+        raise HTTPException(
+            400, f"'{body.model}' is not an embedding model. Use GET /v1/models."
+        )
     req_id = utils.new_request_id()
     t0 = time.perf_counter()
     inputs = body.input if isinstance(body.input, list) else [body.input]
@@ -248,7 +263,7 @@ async def embeddings(body: EmbeddingRequest) -> EmbeddingResponse:
     total_ms = (time.perf_counter() - t0) * 1000
     mgr.record_inference(body.model, infer_ms)
     utils.log_request(
-        req_id, body.model, cached.entry.device, 
+        req_id, body.model, cached.entry.device,
         load_ms, infer_ms, total_ms, hit, "ok"
     )
     return make_embedding_response(body.model, vectors, inputs)

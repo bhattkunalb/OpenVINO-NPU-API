@@ -29,7 +29,7 @@ def build_gen_config(
     if top_p is not None and top_p < 1.0:
         cfg.top_p = top_p
     cfg.do_sample = do_sample
-    
+
     if stop_strings:
         try:
             cfg.stop_strings = set(stop_strings)
@@ -86,7 +86,7 @@ def _resolve_prompt(
     data: str | list[dict[str, Any]], cached: CachedModel
 ) -> str | list[dict[str, Any]]:
     """Standardize input to a context-clipped prompt string or raw message list.
-    
+
     If data is a list of messages, pass it through directly to let LLMPipeline
     apply the model's native chat template (jinja2).
     """

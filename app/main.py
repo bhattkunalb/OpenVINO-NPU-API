@@ -1,3 +1,4 @@
+
 """FastAPI application entry-point.
 
 Startup: validate NPU → load registry → initialize thread pool.

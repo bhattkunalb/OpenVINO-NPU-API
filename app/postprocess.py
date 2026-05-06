@@ -41,19 +41,19 @@ class StreamStopManager:
         if self.stopped:
             return None
         self.buffer += token
-        
+
         for s in self.stop:
             if s in self.buffer:
                 self.stopped = True
                 return self.buffer[:self.buffer.find(s)]
-        
+
         # Keep enough in buffer to cover partial matches of any stop string
         max_stop_len = max((len(s) for s in self.stop), default=0)
         if max_stop_len <= 1:
             out = self.buffer
             self.buffer = ""
             return out
-            
+
         safe_len = len(self.buffer) - (max_stop_len - 1)
         if safe_len > 0:
             out = self.buffer[:safe_len]
