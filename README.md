@@ -4,6 +4,7 @@
 > Export models with `optimum-cli`, configure via `models.yaml`, run with `uvicorn`.
 > 💻 **NPU Hardware Requirements**: Intel Meteor Lake (Core Ultra), Arrow Lake, or Lunar Lake CPUs with NPU enabled in BIOS.
 > Discrete NPU (e.g., Intel® NPU Acceleration Library) also supported.
+
 ---
 
 ## 🚀 Easy Installation
@@ -36,15 +37,14 @@ Export a model to OpenVINO IR format (see [Model Export Guide](#-export-any-open
 optimum-cli export openvino --model Qwen/Qwen2.5-3B-Instruct --weight-format int4 --trust-remote-code --output ./models/qwen2.5-3b-brain-ov
 ```
 
-
 ### 3. Start the Service
 
-```bash# Register your model in models.yaml, then:
+```bash
+# Register your model in models.yaml, then:
 uvicorn app.main:app --host 0.0.0.0 --port 4647 --workers 1
 ```
 
 ---
-
 
 ## Architecture
 
@@ -377,11 +377,13 @@ curl http://localhost:4647/v1/embeddings \
 If you encounter network timeouts or interrupted downloads during export, follow these steps to enable multi-threaded, resumable transfers.
 
 ### 1. Install `hf_xet` and `hf_transfer`
+
 ```powershell
 pip install hf_xet hf_transfer
 ```
 
 ### 2. Enable HF Transfer (Global Environment)
+
 ```powershell
 # Windows (PowerShell)
 $env:HF_HUB_ENABLE_HF_TRANSFER = "1"
@@ -391,6 +393,7 @@ export HF_HUB_ENABLE_HF_TRANSFER=1
 ```
 
 ### 3. Pre-Download with Resume Support
+
 Download the model to a local cache directory before exporting. This ensures that even if the connection drops, you can resume without starting over.
 
 ```powershell
@@ -398,12 +401,12 @@ huggingface-cli download Qwen/Qwen2.5-3B-Instruct --local-dir C:\hf-cache\qwen2.
 ```
 
 ### 4. Export from Local Cache
+
 Point `optimum-cli` to your local directory instead of the Hugging Face repo ID.
 
 ```powershell
 optimum-cli export openvino --model C:\hf-cache\qwen2.5-3b --weight-format int4 --trust-remote-code --task text-generation ./models/qwen2.5-3b-brain-ov
 ```
-
 
 ---
 
@@ -454,8 +457,8 @@ models:
 
 ### 🧪 Quick Validation
 
-
 ```bash
+
 # Test model loads in OpenVINO
 python -c "
 from openvino.runtime import Core
@@ -470,6 +473,7 @@ print('✓ Model compiled successfully')
 ### 🚨 Troubleshooting Export
 
 | Issue | Solution |
+
 | :--- | :--- |
 | `--trust-remote-code` error | Update: `pip install -U "optimum[openvino]"` |
 | Out of memory during export | Add `--per-channel`: `--weight-format int4 --per-channel` |
@@ -484,10 +488,10 @@ print('✓ Model compiled successfully')
 
 ## 📡 Streaming (Server-Sent Events)
 
-
 This service supports real-time token streaming via SSE for `/v1/chat/completions` and `/v1/responses`.
 
 ### Request
+
 
 ```bash
 curl -N -X POST http://localhost:4647/v1/chat/completions \
@@ -501,6 +505,7 @@ curl -N -X POST http://localhost:4647/v1/chat/completions \
 ```
 
 ### Response Format (Exact)
+
 
 ```text
 Content-Type: text/event-stream

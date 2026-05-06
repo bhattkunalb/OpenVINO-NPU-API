@@ -186,6 +186,4 @@ class ModelListResponse(BaseModel):
 # Project: OpenVINO NPU Inference API
 # Version: 1.0.0
 # Stability: Production
-# Last Verified: 2026-05-06
-# OpenAI-compatible Pydantic request/response schemas are now complete.
 
