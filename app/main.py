@@ -64,7 +64,7 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
         auth = request.headers.get("Authorization")
         if auth != f"Bearer {config.API_KEY}":
-            return JSONResponse(401, {"error": {"message": "Invalid API key.", "type": "auth_error"}})
+            return JSONResponse(status_code=401, content={"error": {"message": "Invalid API key.", "type": "auth_error"}})
         return await call_next(request)
 
 
@@ -77,7 +77,7 @@ async def global_exc(request: Request, exc: Exception) -> JSONResponse:
     """Catch-all: return OpenAI-compatible error JSON."""
     log.error("Unhandled %s %s: %s", request.method, request.url.path, exc, exc_info=True)
     body = ErrorResponse(error=ErrorDetail(message=str(exc), type="internal_server_error"))
-    return JSONResponse(500, body.model_dump())
+    return JSONResponse(status_code=500, content=body.model_dump())
 
 
 if __name__ == "__main__":

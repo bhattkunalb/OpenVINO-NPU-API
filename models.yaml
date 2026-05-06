@@ -13,8 +13,8 @@
 
 models:
 
-  - name: qwen2.5-3b-brain-ov
-    path: ./models/qwen2.5-3b-brain-ov
+  - name: qwen2.5-3b-brain-ov-stateful
+    path: ./models/qwen2.5-3b-brain-ov-stateful
     task: chat
     input_type: text
     device: NPU
@@ -23,30 +23,33 @@ models:
     max_tokens: 2048
     context_length: 32768
 
-  - name: qwen2.5-1.5b-worker-ov
-    path: ./models/qwen2.5-1.5b-worker-ov
+  - name: qwen2.5-1.5b-worker-ov-stateful
+    path: ./models/qwen2.5-1.5b-worker-ov-stateful
     task: chat
     input_type: text
     device: NPU
     preprocess_fn: default_genai
     postprocess_fn: default_genai
     max_tokens: 1024
+    context_length: 32768
 
-  - name: phi-3-mini-verifier-ov
-    path: ./models/phi-3-mini-verifier-ov
+  - name: phi-3-mini-verifier-ov-stateful
+    path: ./models/phi-3-mini-verifier-ov-stateful
     task: chat
     input_type: text
     device: NPU
     preprocess_fn: default_genai
     postprocess_fn: default_genai
     max_tokens: 512
+    context_length: 4096
 
-  - name: phi-3.5-mini-alt-verifier-ov
-    path: ./models/phi-3.5-mini-alt-verifier-ov
+  - name: phi-3.5-mini-alt-verifier-ov-stateful
+    path: ./models/phi-3.5-mini-alt-verifier-ov-stateful
     task: chat
     input_type: text
     device: NPU
     preprocess_fn: default_genai
     postprocess_fn: default_genai
     max_tokens: 512
+    context_length: 4096
 

@@ -85,10 +85,15 @@ def run_embedding(cached: CachedModel, inputs: list[str]) -> tuple[list[list[flo
     return vectors, (time.perf_counter() - t0) * 1000
 
 
-def _resolve_prompt(data: str | list[dict[str, Any]], cached: CachedModel) -> str:
-    """Standardize input to a context-clipped prompt string."""
-    prompt = data if isinstance(data, str) else preprocess.build_prompt_from_messages(data)
-    return preprocess.truncate_to_context(prompt, cached.entry.context_length * 4)
+def _resolve_prompt(data: str | list[dict[str, Any]], cached: CachedModel) -> str | list[dict[str, Any]]:
+    """Standardize input to a context-clipped prompt string or raw message list.
+    
+    If data is a list of messages, pass it through directly to let LLMPipeline
+    apply the model's native chat template (minja).
+    """
+    if isinstance(data, list):
+        return data
+    return preprocess.truncate_to_context(data, cached.entry.context_length * 4)
 
 
 def _to_str(result: Any) -> str:
