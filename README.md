@@ -1,6 +1,6 @@
 # OpenVINO NPU API
 
-> 🚀 Superlight OpenAI-compatible API for OpenVINO models on Intel NPU.
+> 🚀 Ultra-light OpenAI-compatible API for OpenVINO models on Intel NPU.
 
 ## ⚡ Quickstart
 

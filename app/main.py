@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
+from typing import Any, AsyncGenerator
 
 import openvino as ov
 from fastapi import FastAPI, Request
@@ -52,19 +52,24 @@ def _assert_npu() -> None:
 app = FastAPI(
     title="OpenVINO NPU Inference API",
     description="OpenAI-compatible inference on Intel NPU.",
-    version="1.0.0", docs_url="/docs", redoc_url="/redoc", lifespan=lifespan,
+    version="1.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    lifespan=lifespan,
 )
 
 
 class APIKeyMiddleware(BaseHTTPMiddleware):
     """Enforce OPENVINO_API_KEY if set; skip for /health and /docs."""
 
-    async def dispatch(self, request: Request, call_next):
+    async def dispatch(self, request: Request, call_next: Any):
         """Authorize request via API key or skip for public endpoints."""
-        is_public = request.url.path in ("/health", "/docs", "/openapi.json", "/redoc")
+        is_public = request.url.path in (
+            "/health", "/docs", "/openapi.json", "/redoc", "/favicon.ico"
+        )
         if not config.API_KEY or is_public:
             return await call_next(request)
-        
+
         auth = request.headers.get("Authorization")
         if auth != f"Bearer {config.API_KEY}":
             return JSONResponse(
