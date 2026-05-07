@@ -1,8 +1,8 @@
 # OpenVINO NPU API
 
-> 🚀 Ultra-light OpenAI-compatible API for OpenVINO models on Intel NPU.
+> Ultra-light OpenAI-compatible API for OpenVINO models on Intel NPU.
 
-## ⚡ Quickstart
+## Quickstart
 
 Get up and running in 5 minutes with this copy-paste workflow:
 
@@ -10,18 +10,18 @@ Get up and running in 5 minutes with this copy-paste workflow:
 # 1. Environment Setup
 python -m venv ov-env
 ov-env\Scripts\activate
-pip install "optimum[openvino]" "openvino>=2025.4.0" "openvino-genai>=2025.4.0" nncf openvino-tokenizers hf_transfer fastapi uvicorn
+pip install -r requirements.txt
 
-# 2. Download & Export (Qwen 2.5 3B)
-$env:HF_HUB_ENABLE_HF_TRANSFER = "1"
-huggingface-cli download Qwen/Qwen2.5-3B-Instruct --local-dir C:\hf-cache\qwen2.5-3b
-optimum-cli export openvino --model C:\hf-cache\qwen2.5-3b --weight-format int4 --trust-remote-code --task text-generation --stateful ./models/qwen2.5-3b-brain-ov-stateful
+# 2. Download a Pre-Built Model (Recommended for NPU)
+$env:PYTHONIOENCODING = "utf-8"
+huggingface-cli download OpenVINO/Qwen2.5-1.5B-Instruct-int4-ov `
+  --local-dir ./models/qwen2.5-1.5b-worker-ov-stateful
 
 # 3. Configure (Save as models.yaml)
 @"
 models:
-  - name: qwen2.5-3b-brain-ov-stateful
-    path: ./models/qwen2.5-3b-brain-ov-stateful
+  - name: qwen2.5-1.5b-worker-ov-stateful
+    path: ./models/qwen2.5-1.5b-worker-ov-stateful
     task: chat
     device: NPU
     preprocess_fn: default_genai
@@ -35,7 +35,7 @@ python -m uvicorn app.main:app --host 0.0.0.0 --port 4647 --workers 1
 curl.exe -s http://localhost:4647/health | ConvertFrom-Json
 ```
 
-## 📋 Prerequisites
+## Prerequisites
 
 > [!WARNING]
 > **Python 3.11.x is strictly required.** Python 3.12+ and 3.14 are NOT supported by the OpenVINO export tooling and will cause `ModuleNotFoundError` during export.
@@ -44,7 +44,7 @@ curl.exe -s http://localhost:4647/health | ConvertFrom-Json
 - Intel Meteor Lake, Arrow Lake, or Lunar Lake CPU
 - [Intel NPU Driver](https://www.intel.com/content/www/us/en/download/794636) installed and enabled
 
-## 🛠️ Environment Setup
+## Environment Setup
 
 Always create a dedicated virtual environment to avoid dependency conflicts:
 
@@ -54,102 +54,115 @@ python -m venv ov-env
 ov-env\Scripts\activate
 
 # Install required packages
-pip install "optimum[openvino]" "openvino>=2025.4.0" "openvino-genai>=2025.4.0" nncf openvino-tokenizers hf_transfer
+pip install -r requirements.txt
 ```
 
-## 📦 Model Export Guide
+## Model Acquisition Guide
 
-Exporting models locally ensures they run efficiently on the NPU.
+There are two ways to get OpenVINO-optimized models for NPU inference.
+
+### Option A: Pre-Built Models (Recommended)
+
+The OpenVINO team publishes verified, NPU-compatible models on HuggingFace. These are pre-exported with the correct stateful configuration and `beam_idx` input required by `openvino_genai.LLMPipeline`.
+
+> [!TIP]
+> Pre-built models are strongly recommended for NPU deployment. They avoid local export OOM issues and NPU compiler crashes that can occur with custom exports.
+
+```powershell
+# Set encoding to avoid UnicodeEncodeError on Windows
+$env:PYTHONIOENCODING = "utf-8"
+
+# Qwen 2.5 1.5B (INT4, ~900 MB)
+huggingface-cli download OpenVINO/Qwen2.5-1.5B-Instruct-int4-ov `
+  --local-dir ./models/qwen2.5-1.5b-worker-ov-stateful
+
+# Qwen 2.5 3B (INT4, ~1.7 GB)
+huggingface-cli download OpenVINO/Qwen2.5-3B-Instruct-int4-ov `
+  --local-dir ./models/qwen2.5-3b-brain-ov-stateful
+```
+
+Available official models: search for `OpenVINO/` on [HuggingFace](https://huggingface.co/OpenVINO).
+
+### Option B: Local Export (Advanced)
+
+If you need a model that isn't available pre-built, export it locally using the included helper script.
 
 > [!IMPORTANT]
-> The `--stateful` flag is REQUIRED for OpenVINO GenAI compatibility. It adds the `beam_idx` input needed for KV caching.
+> The critical flag is `--task text-generation-with-past`. This produces a stateful model with the `beam_idx` input required by `openvino_genai.LLMPipeline`. Using `--task text-generation` (without `-with-past`) will produce an incompatible model.
 
-### The Recommended Workflow (Download-to-Cache)
-
-Avoid network interruptions by downloading to a local cache first, then exporting from there.
-
-#### 1. Qwen 2.5 3B (Brain)
+#### Using the Helper Script
 
 ```powershell
-# Enable fast downloads
-$env:HF_HUB_ENABLE_HF_TRANSFER = "1"
+# Install export dependencies (in addition to requirements.txt)
+pip install "optimum-intel[openvino,nncf]" datasets torch transformers
 
-# Download to cache
-huggingface-cli download Qwen/Qwen2.5-3B-Instruct --local-dir C:\hf-cache\qwen2.5-3b
+# Export Qwen 2.5 1.5B with INT4 compression
+python scripts/export_genai.py Qwen/Qwen2.5-1.5B-Instruct `
+  ./models/qwen2.5-1.5b-worker-ov-stateful
 
-# Export to OpenVINO (takes 10-30 mins)
-optimum-cli export openvino `
-  --model C:\hf-cache\qwen2.5-3b `
-  --weight-format int4 `
-  --trust-remote-code `
-  --task text-generation `
-  --stateful `
-  ./models/qwen2.5-3b-brain-ov-stateful
+# Export with INT8 (uses less RAM)
+python scripts/export_genai.py Qwen/Qwen2.5-1.5B-Instruct `
+  ./models/qwen2.5-1.5b-worker-ov-stateful --weight-format int8
 ```
 
-#### 2. Qwen 2.5 1.5B (Worker)
+#### Using optimum-cli Directly
+
+If you prefer to use `optimum-cli` directly, ensure you use the correct task flag:
 
 ```powershell
+# Download to local cache first (avoids network issues during export)
+$env:HF_HUB_ENABLE_HF_TRANSFER = "1"
 huggingface-cli download Qwen/Qwen2.5-1.5B-Instruct --local-dir C:\hf-cache\qwen2.5-1.5b
+
+# Export with the CORRECT task flag
 optimum-cli export openvino `
   --model C:\hf-cache\qwen2.5-1.5b `
   --weight-format int4 `
   --trust-remote-code `
-  --task text-generation `
-  --stateful `
+  --task text-generation-with-past `
   ./models/qwen2.5-1.5b-worker-ov-stateful
 ```
 
-#### 3. Phi-3 Mini
+#### Verifying the Export
+
+After export, verify the model contains `beam_idx`:
 
 ```powershell
-huggingface-cli download microsoft/Phi-3-mini-4k-instruct --local-dir C:\hf-cache\phi-3-mini
-optimum-cli export openvino `
-  --model C:\hf-cache\phi-3-mini `
-  --weight-format int4 `
-  --trust-remote-code `
-  --task text-generation `
-  --stateful `
-  ./models/phi-3-mini-ov-stateful
+Select-String -Path ".\models\qwen2.5-1.5b-worker-ov-stateful\openvino_model.xml" `
+  -Pattern "beam_idx"
 ```
 
-#### 4. Phi-3.5 Mini
-
-```powershell
-huggingface-cli download microsoft/Phi-3.5-mini-instruct --local-dir C:\hf-cache\phi-3.5-mini
-optimum-cli export openvino `
-  --model C:\hf-cache\phi-3.5-mini `
-  --weight-format int4 `
-  --trust-remote-code `
-  --task text-generation `
-  --stateful `
-  ./models/phi-3.5-mini-ov-stateful
-```
+If `beam_idx` is NOT found, the model is incompatible with `LLMPipeline`. Re-export with `--task text-generation-with-past`.
 
 *Note: The output directory is a positional argument at the end of the command. Do not use an `--output` flag.*
 
-## ⚙️ Configuration
+## Configuration
 
-Configure your models in `models.yaml`. Ensure the `name` ends with `-ov-stateful` and matches the `path`.
+Configure your models in `models.yaml`. Ensure the `name` matches the model you plan to request.
 
 ```yaml
 models:
-  - name: qwen2.5-3b-brain-ov-stateful
-    path: ./models/qwen2.5-3b-brain-ov-stateful
-    task: chat
-    device: NPU
-    preprocess_fn: default_genai
-    postprocess_fn: default_genai
-
   - name: qwen2.5-1.5b-worker-ov-stateful
     path: ./models/qwen2.5-1.5b-worker-ov-stateful
     task: chat
     device: NPU
     preprocess_fn: default_genai
     postprocess_fn: default_genai
+
+  - name: qwen2.5-3b-brain-ov-stateful
+    path: ./models/qwen2.5-3b-brain-ov-stateful
+    task: chat
+    device: NPU
+    preprocess_fn: default_genai
+    postprocess_fn: default_genai
 ```
 
-## 🚀 Starting the Server
+### Naming Convention
+
+- `-ov-stateful` suffix: Model exported with `--task text-generation-with-past` (has `beam_idx`, GenAI-compatible).
+- `-ov-stateless` suffix: Model exported with `--task text-generation` (no KV cache, slower, use only as fallback).
+
+## Starting the Server
 
 Activate your environment and start the uvicorn server.
 
@@ -164,7 +177,7 @@ ov-env\Scripts\activate
 python -m uvicorn app.main:app --host 0.0.0.0 --port 4647 --workers 1
 ```
 
-## 🔌 API Reference
+## API Reference
 
 ### Health Check
 
@@ -185,7 +198,7 @@ To avoid JSON escaping issues in PowerShell, construct an object and convert it:
 
 ```powershell
 $body = @{
-    model = "qwen2.5-3b-brain-ov-stateful"
+    model = "qwen2.5-1.5b-worker-ov-stateful"
     messages = @(@{ role = "user"; content = "Hello" })
     max_tokens = 20
 } | ConvertTo-Json -Depth 10 -Compress
@@ -201,21 +214,25 @@ Invoke-RestMethod -Uri "http://localhost:4647/v1/chat/completions" `
 ```cmd
 curl.exe -s -X POST http://localhost:4647/v1/chat/completions ^
   -H "Content-Type: application/json" ^
-  -d "{\"model\":\"qwen2.5-3b-brain-ov-stateful\",\"messages\":[{\"role\":\"user\",\"content\":\"Hello\"}],\"max_tokens\":20}"
+  -d "{\"model\":\"qwen2.5-1.5b-worker-ov-stateful\",\"messages\":[{\"role\":\"user\",\"content\":\"Hello\"}],\"max_tokens\":20}"
 ```
 
-## 🔧 Troubleshooting
+## Troubleshooting
 
 | Issue | Symptom | Fix |
 | :--- | :--- | :--- |
+| Wrong export task | `Stateful models without beam_idx input are not supported` | Re-export with `--task text-generation-with-past` or use `scripts/export_genai.py` |
+| NPU compiler crash | `Failed to compile Model0_kv1152_FCEW000__0 for all devices in [NPU]` | Use a pre-built model from `OpenVINO/` org on HuggingFace |
 | Python 3.14 incompatibility | `ModuleNotFoundError: optimum.exporters.base` | Use Python 3.11.x only |
-| Missing `--stateful` flag | `Stateful models without beam_idx input are not supported` | Re-export with `--stateful` |
+| OpenVINO import error | `ModuleNotFoundError: openvino.runtime` | Update imports: `from openvino import Core` (not `from openvino.runtime import Core`) |
+| TypeError in generate | `incompatible function arguments... ChatHistory` | Update `app/pipeline.py` to format messages as string prompts |
 | PowerShell `curl` alias | `Cannot bind parameter 'Headers'` | Use `curl.exe` or `Invoke-RestMethod` |
 | JSON escaping in PowerShell | `JSON decode error` | Use `ConvertTo-Json` or save to `.json` file |
-| Error handler crash | `TypeError` in global exception handler | Fixed; ensure `JSONResponse` uses keyword args (`status_code=500`) |
+| UnicodeEncodeError on Windows | `charmap codec can't encode characters` | Set `$env:PYTHONIOENCODING="utf-8"` before running commands |
+| Error handler crash | `TypeError` in global exception handler | Ensure `JSONResponse` uses keyword args (`status_code=500, content=...`) |
 | Models not loading | `"loaded_models":[]` in health response | Normal lazy loading; first request triggers compilation (~2-5s delay) |
 | Export hangs/fails | `IncompleteRead`, `NameResolutionError` | Install `hf_transfer`, set `$env:HF_HUB_ENABLE_HF_TRANSFER="1"`, use local cache |
-| Pagefile too small | `OSError: The paging file is too small (os error 1455)` | Increase Windows pagefile to 16-32 GB or close all other apps |
+| Export OOM | `Failed to allocate ... bytes of memory` | Increase Windows pagefile to 16-32 GB, or use `--weight-format int8`/`fp16` |
 | NPU not detected | `NPU not in available_devices` | Install Intel NPU driver: <https://www.intel.com/content/www/us/en/download/794636> |
 
 ### Troubleshooting Checklist
@@ -231,7 +248,7 @@ If things aren't working, check these common pitfalls:
 
 #### Model export fails
 
-- [ ] Using `--stateful` flag?
+- [ ] Using `--task text-generation-with-past`? (NOT `text-generation`)
 - [ ] Output dir is positional arg (no `--output`)?
 - [ ] Local cache path used (not direct HF download)?
 - [ ] Pagefile increased to 16+ GB?
@@ -241,8 +258,8 @@ If things aren't working, check these common pitfalls:
 
 - [ ] Check server logs for OpenVINO errors
 - [ ] Model compiled on first request? Wait 2-5 seconds
-- [ ] NPU driver installed? `python -c "from openvino.runtime import Core; print(Core().available_devices)"`
-- [ ] Error handler patched in `app/main.py`?
+- [ ] NPU driver installed? `python -c "from openvino import Core; print(Core().available_devices)"`
+- [ ] Exported model has `beam_idx`? `Select-String -Path ".\models\...\openvino_model.xml" -Pattern "beam_idx"`
 
 #### curl/PowerShell issues
 
@@ -250,7 +267,7 @@ If things aren't working, check these common pitfalls:
 - [ ] JSON built with `ConvertTo-Json` or saved to file?
 - [ ] Testing in `cmd.exe` instead of PowerShell?
 
-## 🛡️ Production Hardening
+## Production Hardening
 
 The codebase has undergone a rigorous production-readiness review and hardening process:
 
@@ -260,7 +277,7 @@ The codebase has undergone a rigorous production-readiness review and hardening 
 - **Strict Linting Compliance**: Implemented automated whitespace cleanup and standardized function signatures.
 - **Standardized Error Handling**: OpenAI-compatible error response formatting ensured across all endpoints.
 
-## ⏱️ Performance Notes
+## Performance Notes
 
 ### Memory Requirements
 
@@ -275,6 +292,14 @@ The codebase has undergone a rigorous production-readiness review and hardening 
 
 Models are **lazy-loaded**. They will not appear in the `"loaded_models"` array of the `/health` endpoint until the *first* inference request is made. The first request will experience a compilation delay of ~2-5 seconds. Subsequent requests will be fast.
 
-## 🤝 Contributing
+## Contributing
 
-To add new models, follow the Model Export Guide to export them to INT4 OpenVINO format with the `--stateful` flag, add them to `models.yaml`, and test with the API. Please report any issues or submit PRs for improvements!
+To add new models:
+
+1. **Preferred**: Download a pre-built model from the [OpenVINO HuggingFace org](https://huggingface.co/OpenVINO).
+2. **Alternative**: Export using `scripts/export_genai.py` with `--task text-generation-with-past`.
+3. Verify `beam_idx` exists in the exported `openvino_model.xml`.
+4. Add the model to `models.yaml`.
+5. Test with the API.
+
+Please report any issues or submit PRs for improvements!

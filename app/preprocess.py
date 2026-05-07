@@ -4,20 +4,21 @@ from __future__ import annotations
 
 from typing import Any
 
-_ROLE_TAGS = {"system": "<|system|>", "user": "<|user|>", "assistant": "<|assistant|>"}
+_ROLE_TAGS = {"system": "system", "user": "user", "assistant": "assistant"}
 
 
 def build_prompt_from_messages(messages: list[dict[str, Any]]) -> str:
-    """Build a plain-text prompt from chat message dicts.
+    """Build a ChatML-style prompt from chat message dicts.
 
-    GenAI LLMPipeline applies the model's chat template (jinja2) internally;
-    this fallback is for models compiled via the raw Core path.
+    Uses the <|im_start|>/<|im_end|> format compatible with Qwen 2.5,
+    Phi-3, and other ChatML-based models.
     """
     parts = []
     for msg in messages:
-        tag = _ROLE_TAGS.get(msg.get("role", "user"), "")
-        parts.append(f"{tag}\n{msg.get('content', '')}" if tag else msg.get("content", ""))
-    parts.append("<|assistant|>")
+        role = msg.get("role", "user")
+        content = msg.get("content", "")
+        parts.append(f"<|im_start|>{role}\n{content}<|im_end|>")
+    parts.append("<|im_start|>assistant\n")
     return "\n".join(parts)
 
 
