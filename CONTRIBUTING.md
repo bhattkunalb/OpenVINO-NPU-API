@@ -7,19 +7,22 @@ Thank you for your interest in improving this project! Since this repository tar
 - **Python**: Use Python 3.11.x.
 - **Hardware**: You should have access to an Intel NPU (Meteor Lake, Arrow Lake, or Lunar Lake) to verify changes.
 - **Dependencies**: Install the core requirements:
+
   ```bash
   pip install -r requirements.txt
   ```
 
 ## 📦 Exporting Models
 
-All models must be compatible with `openvino_genai.LLMPipeline`. 
+All models must be compatible with `openvino_genai.LLMPipeline`.
 
 1. **Always use stateful models**: Use the `--task text-generation-with-past` flag.
 2. **Preferred Export**: Use the provided helper script:
+
    ```bash
    python scripts/export_genai.py <model_id> <output_dir>
    ```
+
 3. **Verification**: Always verify that `beam_idx` is present in the `openvino_model.xml` file.
 
 ## 🧪 Testing
