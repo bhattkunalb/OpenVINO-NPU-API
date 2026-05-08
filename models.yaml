@@ -1,20 +1,16 @@
-# models.yaml - Pre-built NPU-optimized models (no export required)
-# Download models first using: python scripts/download_prebuilt.py <model_id>
+# models.yaml - OpenVINO NPU API Model Registry
+# 
+# Instructions:
+# 1. Download models using: python scripts/download_prebuilt.py <alias>
+# 2. Uncomment entries for models you have downloaded
+# 3. Ensure 'name' matches exactly what you use in API calls
+# 4. Keep indentation: 2 spaces for list items, 4 spaces for properties
+#
+# ⚠️ YAML is indentation-sensitive. Use spaces only, never tabs.
 
 models:
-  # Brain: Larger model for complex reasoning
-  - name: qwen2.5-3b-npu
-    path: ./models/qwen2.5-3b-npu
-    task: chat
-    input_type: text
-    device: NPU
-    preprocess_fn: default_genai
-    postprocess_fn: default_genai
-    max_tokens: 2048
-    context_length: 32768
-    # Download: python scripts/download_prebuilt.py qwen2.5-3b
-
-  # Worker: Balanced speed/quality for general tasks
+  # ✅ Qwen 2.5 1.5B - Balanced speed/quality (RECOMMENDED STARTING POINT)
+  # Download: python scripts/download_prebuilt.py qwen2.5-1.5b
   - name: qwen2.5-1.5b-npu
     path: ./models/qwen2.5-1.5b-npu
     task: chat
@@ -23,26 +19,52 @@ models:
     preprocess_fn: default_genai
     postprocess_fn: default_genai
     max_tokens: 1024
-    # Download: python scripts/download_prebuilt.py qwen2.5-1.5b
+    context_length: 32768
 
-  # Verifier: Small, fast model for fact-checking
-  - name: phi-3-mini-npu
-    path: ./models/phi-3-mini-npu
-    task: chat
-    input_type: text
-    device: NPU
-    preprocess_fn: default_genai
-    postprocess_fn: default_genai
-    max_tokens: 512
-    # Download: python scripts/download_prebuilt.py phi-3-mini
+  # ⏸️ Qwen 2.5 3B - Larger model for complex reasoning
+  # Download: python scripts/download_prebuilt.py qwen2.5-3b
+  # - name: qwen2.5-3b-npu
+  #   path: ./models/qwen2.5-3b-npu
+  #   task: chat
+  #   input_type: text
+  #   device: NPU
+  #   preprocess_fn: default_genai
+  #   postprocess_fn: default_genai
+  #   max_tokens: 2048
+  #   context_length: 32768
 
-  # Alt Verifier: Meta's efficient 1B model
-  - name: llama-3.2-1b-npu
-    path: ./models/llama-3.2-1b-npu
-    task: chat
-    input_type: text
-    device: NPU
-    preprocess_fn: default_genai
-    postprocess_fn: default_genai
-    max_tokens: 512
-    # Download: python scripts/download_prebuilt.py llama-3.2-1b
+  # ⏸️ Phi-3 Mini - Fast, efficient verifier model
+  # Download: python scripts/download_prebuilt.py phi-3-mini
+  # - name: phi-3-mini-npu
+  #   path: ./models/phi-3-mini-npu
+  #   task: chat
+  #   input_type: text
+  #   device: NPU
+  #   preprocess_fn: default_genai
+  #   postprocess_fn: default_genai
+  #   max_tokens: 512
+  #   context_length: 4096
+
+  # ⏸️ Llama 3.2 1B - Meta's lightweight official model
+  # Download: python scripts/download_prebuilt.py llama-3.2-1b
+  # - name: llama-3.2-1b-npu
+  #   path: ./models/llama-3.2-1b-npu
+  #   task: chat
+  #   input_type: text
+  #   device: NPU
+  #   preprocess_fn: default_genai
+  #   postprocess_fn: default_genai
+  #   max_tokens: 512
+  #   context_length: 4096
+
+  # ⏸️ Gemma 2B - Google's efficient instruction model
+  # Download: python scripts/download_prebuilt.py gemma-2b
+  # - name: gemma-2b-npu
+  #   path: ./models/gemma-2b-npu
+  #   task: chat
+  #   input_type: text
+  #   device: NPU
+  #   preprocess_fn: default_genai
+  #   postprocess_fn: default_genai
+  #   max_tokens: 1024
+  #   context_length: 8192

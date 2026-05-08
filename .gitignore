@@ -1,23 +1,47 @@
+# Virtual environments
+ov-env/
+venv/
+.env
+
+# Model files (large, downloadable)
+models/*/openvino_model.bin
+models/*/*.bin
+models/*/*.xml
+!models/.gitkeep
+
+# Cache and temp files
 __pycache__/
 *.py[cod]
 *$py.class
-.env
-.venv
-env/
-venv/
-build/
-dist/
-*.egg-info/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.log
+*.tmp
 .pytest_cache/
 .coverage
 htmlcov/
 .mypy_cache/
 .tox/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
 .DS_Store
-*.log
+Thumbs.db
+
+# Export logs (optional)
+export-*.txt
+
+build/
+dist/
+*.egg-info/
 trace.json
 trace.json.gz
 heapsnapshot
-ov-env/
-models/
 scratch/
