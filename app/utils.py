@@ -13,26 +13,36 @@ from app import config
 
 log = logging.getLogger(__name__)
 
-_thread_pool: ThreadPoolExecutor | None = None
+class ThreadPoolManager:
+    """Manages the lifecycle of a singleton ThreadPoolExecutor."""
+    _executor: ThreadPoolExecutor | None = None
+
+    @classmethod
+    def get_executor(cls) -> ThreadPoolExecutor:
+        """Return the singleton executor, initializing it if necessary."""
+        if cls._executor is None:
+            cls._executor = ThreadPoolExecutor(
+                max_workers=config.THREAD_POOL_SIZE, thread_name_prefix="ov-infer"
+            )
+            log.info("Thread pool: max_workers=%d", config.THREAD_POOL_SIZE)
+        return cls._executor
+
+    @classmethod
+    def shutdown(cls) -> None:
+        """Release the executor if it exists."""
+        if cls._executor is not None:
+            cls._executor.shutdown(wait=True)
+            cls._executor = None
 
 
 def get_thread_pool() -> ThreadPoolExecutor:
     """Return the singleton ThreadPoolExecutor for blocking inference."""
-    global _thread_pool
-    if _thread_pool is None:
-        _thread_pool = ThreadPoolExecutor(
-            max_workers=config.THREAD_POOL_SIZE, thread_name_prefix="ov-infer"
-        )
-        log.info("Thread pool: max_workers=%d", config.THREAD_POOL_SIZE)
-    return _thread_pool
+    return ThreadPoolManager.get_executor()
 
 
 def shutdown_thread_pool() -> None:
     """Drain and release the thread pool."""
-    global _thread_pool
-    if _thread_pool is not None:
-        _thread_pool.shutdown(wait=True)
-        _thread_pool = None
+    ThreadPoolManager.shutdown()
 
 
 # SSE helpers

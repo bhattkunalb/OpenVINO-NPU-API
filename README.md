@@ -2,38 +2,39 @@
 
 > Ultra-light OpenAI-compatible API for OpenVINO models on Intel NPU.
 
-## Quickstart
+## ⚡ Quick Start (5 Minutes)
 
-Get up and running in 5 minutes with this copy-paste workflow:
+1. **Clone & Setup**
 
-```powershell
-# 1. Environment Setup
-python -m venv ov-env
-ov-env\Scripts\activate
-pip install -r requirements.txt
+   ```powershell
+   git clone https://github.com/bhattkunalb/OpenVINO-NPU-API.git
+   cd OpenVINO-NPU-API
+   python -m venv ov-env
+   ov-env\Scripts\activate
+   pip install -r requirements.txt
+   ```
 
-# 2. Download a Pre-Built Model (Recommended for NPU)
-$env:PYTHONIOENCODING = "utf-8"
-huggingface-cli download OpenVINO/Qwen2.5-1.5B-Instruct-int4-ov `
-  --local-dir ./models/qwen2.5-1.5b-worker-ov-stateful
+2. **Download a Model**
 
-# 3. Configure (Save as models.yaml)
-@"
-models:
-  - name: qwen2.5-1.5b-worker-ov-stateful
-    path: ./models/qwen2.5-1.5b-worker-ov-stateful
-    task: chat
-    device: NPU
-    preprocess_fn: default_genai
-    postprocess_fn: default_genai
-"@ | Out-File -Encoding utf8 models.yaml
+   ```powershell
+   python scripts/download_prebuilt.py qwen2.5-1.5b
+   ```
 
-# 4. Start Server
-python -m uvicorn app.main:app --host 0.0.0.0 --port 4647 --workers 1
+3. **Start Server**
 
-# 5. Test API (in a new PowerShell window)
-curl.exe -s http://localhost:4647/health | ConvertFrom-Json
-```
+   ```powershell
+   python -m uvicorn app.main:app --host 0.0.0.0 --port 4647 --workers 1
+   ```
+
+4. **Test**
+
+   ```powershell
+   curl.exe -s -X POST http://localhost:4647/v1/chat/completions `
+     -H "Content-Type: application/json" `
+     -d "{\"model\":\"qwen2.5-1.5b-npu\",\"messages\":[{\"role\":\"user\",\"content\":\"Hi\"}],\"max_tokens\":20}"
+   ```
+
+✅ Done! You have a local NPU inference API.
 
 ## Prerequisites
 
@@ -57,84 +58,63 @@ ov-env\Scripts\activate
 pip install -r requirements.txt
 ```
 
-## Model Acquisition Guide
+## 📦 Using Pre-Built NPU Models (Recommended)
 
-There are two ways to get OpenVINO-optimized models for NPU inference.
+This API is designed to work with **pre-converted, NPU-optimized models** from official sources. No export step required.
 
-### Option A: Pre-Built Models (Recommended)
+### Step 1: Download a Pre-Built Model
 
-The OpenVINO team publishes verified, NPU-compatible models on HuggingFace. These are pre-exported with the correct stateful configuration and `beam_idx` input required by `openvino_genai.LLMPipeline`.
-
-> [!TIP]
-> Pre-built models are strongly recommended for NPU deployment. They avoid local export OOM issues and NPU compiler crashes that can occur with custom exports.
+Choose from Intel's curated collection: [LLMs Optimized for NPU](https://huggingface.co/collections/OpenVINO/llms-optimized-for-npu)
 
 ```powershell
-# Set encoding to avoid UnicodeEncodeError on Windows
-$env:PYTHONIOENCODING = "utf-8"
+# Example: Download Qwen 2.5 1.5B INT4 for NPU
+huggingface-cli download OpenVINO/Qwen2.5-1.5B-Instruct-int4-ov --local-dir ./models/qwen2.5-1.5b-npu
 
-# Qwen 2.5 1.5B (INT4, ~900 MB)
-huggingface-cli download OpenVINO/Qwen2.5-1.5B-Instruct-int4-ov `
-  --local-dir ./models/qwen2.5-1.5b-worker-ov-stateful
+# Example: Download Phi-3 Mini INT4 for NPU
+huggingface-cli download OpenVINO/Phi-3-mini-4k-instruct-int4-ov --local-dir ./models/phi-3-mini-npu
 
-# Qwen 2.5 3B (INT4, ~1.7 GB)
-huggingface-cli download OpenVINO/Qwen2.5-3B-Instruct-int4-ov `
-  --local-dir ./models/qwen2.5-3b-brain-ov-stateful
+# Example: Download Llama 3.2 1B INT4 for NPU
+huggingface-cli download OpenVINO/Llama-3.2-1B-Instruct-int4-ov --local-dir ./models/llama-3.2-1b-npu
 ```
 
-Available official models: search for `OpenVINO/` on [HuggingFace](https://huggingface.co/OpenVINO).
+> ✅ These models are pre-quantized (INT4), pre-converted to OpenVINO IR, and tested on Intel Core Ultra NPUs.
 
-### Option B: Local Export (Advanced)
+### Step 2: Update `models.yaml`
 
-If you need a model that isn't available pre-built, export it locally using the included helper script.
+Edit `models.yaml` to point to your downloaded model:
 
-> [!IMPORTANT]
-> The critical flag is `--task text-generation-with-past`. This produces a stateful model with the `beam_idx` input required by `openvino_genai.LLMPipeline`. Using `--task text-generation` (without `-with-past`) will produce an incompatible model.
+```yaml
+models:
+  - name: qwen2.5-1.5b-npu
+    path: ./models/qwen2.5-1.5b-npu
+    task: chat
+    device: NPU
+    preprocess_fn: default_genai
+    postprocess_fn: default_genai
+```
 
-#### Using the Helper Script
+### Step 3: Start the Server
 
 ```powershell
-# Install export dependencies (in addition to requirements.txt)
-pip install "optimum-intel[openvino,nncf]" datasets torch transformers
-
-# Export Qwen 2.5 1.5B with INT4 compression
-python scripts/export_genai.py Qwen/Qwen2.5-1.5B-Instruct `
-  ./models/qwen2.5-1.5b-worker-ov-stateful
-
-# Export with INT8 (uses less RAM)
-python scripts/export_genai.py Qwen/Qwen2.5-1.5B-Instruct `
-  ./models/qwen2.5-1.5b-worker-ov-stateful --weight-format int8
+python -m uvicorn app.main:app --host 0.0.0.0 --port 4647 --workers 1
 ```
 
-#### Using optimum-cli Directly
-
-If you prefer to use `optimum-cli` directly, ensure you use the correct task flag:
+### Step 4: Test
 
 ```powershell
-# Download to local cache first (avoids network issues during export)
-$env:HF_HUB_ENABLE_HF_TRANSFER = "1"
-huggingface-cli download Qwen/Qwen2.5-1.5B-Instruct --local-dir C:\hf-cache\qwen2.5-1.5b
+$body = @{
+    model = "qwen2.5-1.5b-npu"
+    messages = @(@{ role = "user"; content = "Hello" })
+    max_tokens = 20
+} | ConvertTo-Json -Depth 10 -Compress
 
-# Export with the CORRECT task flag
-optimum-cli export openvino `
-  --model C:\hf-cache\qwen2.5-1.5b `
-  --weight-format int4 `
-  --trust-remote-code `
-  --task text-generation-with-past `
-  ./models/qwen2.5-1.5b-worker-ov-stateful
+Invoke-RestMethod -Uri "http://localhost:4647/v1/chat/completions" `
+  -Method Post `
+  -ContentType "application/json" `
+  -Body $body
 ```
 
-#### Verifying the Export
-
-After export, verify the model contains `beam_idx`:
-
-```powershell
-Select-String -Path ".\models\qwen2.5-1.5b-worker-ov-stateful\openvino_model.xml" `
-  -Pattern "beam_idx"
-```
-
-If `beam_idx` is NOT found, the model is incompatible with `LLMPipeline`. Re-export with `--task text-generation-with-past`.
-
-*Note: The output directory is a positional argument at the end of the command. Do not use an `--output` flag.*
+✅ Expected: JSON response with AI reply in ~3-5 seconds on NPU.
 
 ## Configuration
 
@@ -217,55 +197,47 @@ curl.exe -s -X POST http://localhost:4647/v1/chat/completions ^
   -d "{\"model\":\"qwen2.5-1.5b-worker-ov-stateful\",\"messages\":[{\"role\":\"user\",\"content\":\"Hello\"}],\"max_tokens\":20}"
 ```
 
-## Troubleshooting
+## 🔧 Troubleshooting Pre-Built Models
 
-| Issue | Symptom | Fix |
-| :--- | :--- | :--- |
-| Wrong export task | `Stateful models without beam_idx input are not supported` | Re-export with `--task text-generation-with-past` or use `scripts/export_genai.py` |
-| NPU compiler crash | `Failed to compile Model0_kv1152_FCEW000__0 for all devices in [NPU]` | Use a pre-built model from `OpenVINO/` org on HuggingFace |
-| Python 3.14 incompatibility | `ModuleNotFoundError: optimum.exporters.base` | Use Python 3.11.x only |
-| OpenVINO import error | `ModuleNotFoundError: openvino.runtime` | Update imports: `from openvino import Core` (not `from openvino.runtime import Core`) |
-| TypeError in generate | `incompatible function arguments... ChatHistory` | Update `app/pipeline.py` to format messages as string prompts |
-| PowerShell `curl` alias | `Cannot bind parameter 'Headers'` | Use `curl.exe` or `Invoke-RestMethod` |
-| JSON escaping in PowerShell | `JSON decode error` | Use `ConvertTo-Json` or save to `.json` file |
-| UnicodeEncodeError on Windows | `charmap codec can't encode characters` | Set `$env:PYTHONIOENCODING="utf-8"` before running commands |
-| Error handler crash | `TypeError` in global exception handler | Ensure `JSONResponse` uses keyword args (`status_code=500, content=...`) |
-| Models not loading | `"loaded_models":[]` in health response | Normal lazy loading; first request triggers compilation (~2-5s delay) |
-| Export hangs/fails | `IncompleteRead`, `NameResolutionError` | Install `hf_transfer`, set `$env:HF_HUB_ENABLE_HF_TRANSFER="1"`, use local cache |
-| Export OOM | `Failed to allocate ... bytes of memory` | Increase Windows pagefile to 16-32 GB, or use `--weight-format int8`/`fp16` |
-| NPU not detected | `NPU not in available_devices` | Install Intel NPU driver: <https://www.intel.com/content/www/us/en/download/794636> |
+### Model not found / 404 error
 
-### Troubleshooting Checklist
+- Ensure you downloaded the model first: `python scripts/download_prebuilt.py <model_id>`
+- Verify the path in `models.yaml` matches the actual folder name
+- Check `ls ./models/` to confirm files exist
 
-If things aren't working, check these common pitfalls:
+### NPU not detected
 
-#### Server won't start
+```powershell
+python -c "import openvino; print(openvino.Core().available_devices)"
+```
 
-- [ ] Python 3.11.x active? `python --version`
-- [ ] Virtual environment activated? Prompt shows `(ov-env)`
-- [ ] Dependencies installed? `pip list | Select-String -Pattern "openvino"`
-- [ ] `app/main.py` exists? `ls app\main.py`
+- If `NPU` is missing: Install [Intel NPU driver](https://www.intel.com/content/www/us/en/download/794636)
+- Ensure the hardware is enabled in Device Manager
 
-#### Model export fails
+### First request is slow (~5-10s)
 
-- [ ] Using `--task text-generation-with-past`? (NOT `text-generation`)
-- [ ] Output dir is positional arg (no `--output`)?
-- [ ] Local cache path used (not direct HF download)?
-- [ ] Pagefile increased to 16+ GB?
-- [ ] `hf_transfer` installed and `$env:HF_HUB_ENABLE_HF_TRANSFER="1"` set?
+- Normal: NPU compilation happens on first load. Subsequent requests are fast.
 
-#### Inference returns 500 error
+### Request fails with "beam_idx" or "StatefulToStateless" error
 
-- [ ] Check server logs for OpenVINO errors
-- [ ] Model compiled on first request? Wait 2-5 seconds
-- [ ] NPU driver installed? `python -c "from openvino import Core; print(Core().available_devices)"`
-- [ ] Exported model has `beam_idx`? `Select-String -Path ".\models\...\openvino_model.xml" -Pattern "beam_idx"`
+- You may have accidentally used a custom-exported model.
+- **Fix**: Delete the custom model folder and download a pre-built one:
 
-#### curl/PowerShell issues
+  ```powershell
+  Remove-Item ./models/your-custom-model -Recurse -Force
+  python scripts/download_prebuilt.py OpenVINO/Qwen2.5-1.5B-Instruct-int4-ov
+  ```
 
-- [ ] Using `curl.exe` (not PowerShell alias)?
-- [ ] JSON built with `ConvertTo-Json` or saved to file?
-- [ ] Testing in `cmd.exe` instead of PowerShell?
+### Out of memory on NPU
+
+- Pre-built INT4 models require ~1.5-4 GB NPU memory.
+- Close other apps; ensure no other NPU processes are running.
+- Try a smaller model (e.g., `llama-3.2-1b-npu`).
+
+### Model loads but response is slow
+
+- Check you're actually using NPU: server logs should show `Compiling on NPU`.
+- If it says `CPU`, verify `device: NPU` in `models.yaml`.
 
 ## Production Hardening
 
@@ -296,10 +268,8 @@ Models are **lazy-loaded**. They will not appear in the `"loaded_models"` array 
 
 To add new models:
 
-1. **Preferred**: Download a pre-built model from the [OpenVINO HuggingFace org](https://huggingface.co/OpenVINO).
-2. **Alternative**: Export using `scripts/export_genai.py` with `--task text-generation-with-past`.
-3. Verify `beam_idx` exists in the exported `openvino_model.xml`.
-4. Add the model to `models.yaml`.
-5. Test with the API.
+1. Download a pre-built model from the [OpenVINO HuggingFace org](https://huggingface.co/OpenVINO).
+2. Add the model to `models.yaml`.
+3. Test with the API.
 
 Please report any issues or submit PRs for improvements!

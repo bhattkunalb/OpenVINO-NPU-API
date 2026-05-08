@@ -126,6 +126,7 @@ async def _stream_chat(
         loop.call_soon_threadsafe(queue.put_nowait, token)
         return False
 
+    t0 = time.perf_counter()
     def _run() -> tuple:
         cached, hit = mgr.get_cached(body.model)
         load_ms = (time.perf_counter() - t0) * 1000
@@ -137,7 +138,6 @@ async def _stream_chat(
         loop.call_soon_threadsafe(queue.put_nowait, None)
         return hit, load_ms, infer_ms, cached
 
-    t0 = time.perf_counter()
     future = loop.run_in_executor(utils.get_thread_pool(), _run)
 
     yield utils.sse_event({

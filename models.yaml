@@ -1,20 +1,10 @@
-# Model registry – add new models here with zero code changes.
-#
-# Spec-required fields per entry:
-#   name:           unique string identifier
-#   path:           absolute path to OV IR directory (*.xml + *.bin) or GenAI model dir
-#   task:           chat | completion | embedding | vision
-#   input_type:     text | image | tensor
-#   device:         NPU (default) | CPU | GPU
-#   preprocess_fn:  default_genai | custom:<module.function>
-#   postprocess_fn: default_genai | custom:<module.function>
-#   max_tokens:     maximum generation tokens
-#   context_length: context window in tokens
+# models.yaml - Pre-built NPU-optimized models (no export required)
+# Download models first using: python scripts/download_prebuilt.py <model_id>
 
 models:
-
-  - name: qwen2.5-3b-brain-ov-stateful
-    path: ./models/qwen2.5-3b-brain-ov-stateful
+  # Brain: Larger model for complex reasoning
+  - name: qwen2.5-3b-npu
+    path: ./models/qwen2.5-3b-npu
     task: chat
     input_type: text
     device: NPU
@@ -22,34 +12,37 @@ models:
     postprocess_fn: default_genai
     max_tokens: 2048
     context_length: 32768
+    # Download: python scripts/download_prebuilt.py qwen2.5-3b
 
-  - name: qwen2.5-1.5b-worker-ov-stateful
-    path: ./models/qwen2.5-1.5b-worker-ov-stateful
+  # Worker: Balanced speed/quality for general tasks
+  - name: qwen2.5-1.5b-npu
+    path: ./models/qwen2.5-1.5b-npu
     task: chat
     input_type: text
     device: NPU
     preprocess_fn: default_genai
     postprocess_fn: default_genai
     max_tokens: 1024
-    context_length: 32768
+    # Download: python scripts/download_prebuilt.py qwen2.5-1.5b
 
-  - name: phi-3-mini-verifier-ov-stateful
-    path: ./models/phi-3-mini-verifier-ov-stateful
+  # Verifier: Small, fast model for fact-checking
+  - name: phi-3-mini-npu
+    path: ./models/phi-3-mini-npu
     task: chat
     input_type: text
     device: NPU
     preprocess_fn: default_genai
     postprocess_fn: default_genai
     max_tokens: 512
-    context_length: 4096
+    # Download: python scripts/download_prebuilt.py phi-3-mini
 
-  - name: phi-3.5-mini-alt-verifier-ov-stateful
-    path: ./models/phi-3.5-mini-alt-verifier-ov-stateful
+  # Alt Verifier: Meta's efficient 1B model
+  - name: llama-3.2-1b-npu
+    path: ./models/llama-3.2-1b-npu
     task: chat
     input_type: text
     device: NPU
     preprocess_fn: default_genai
     postprocess_fn: default_genai
     max_tokens: 512
-    context_length: 4096
-
+    # Download: python scripts/download_prebuilt.py llama-3.2-1b
