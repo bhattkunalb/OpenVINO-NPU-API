@@ -1,5 +1,5 @@
 # models.yaml - OpenVINO NPU API Model Registry
-# 
+#
 # Instructions:
 # 1. Download models using: python scripts/download_prebuilt.py <alias>
 # 2. Uncomment entries for models you have downloaded

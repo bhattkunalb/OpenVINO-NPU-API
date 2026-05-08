@@ -146,7 +146,7 @@ yaml.parser.ParserError: while parsing a block collection
 {"error": {"message": "Model 'xyz' not found"}}
 ```
 
-**Fix:** 
+**Fix:**
 
 1. Ensure model is downloaded: `ls ./models/`
 2. Ensure `name` in API call matches `models.yaml` entry exactly
@@ -178,7 +178,7 @@ python scripts/download_prebuilt.py qwen2.5-1.5b
 
 ### Out of memory on NPU
 
-**Fix:** 
+**Fix:**
 
 - Close other applications
 - Try a smaller model (`llama-3.2-1b-npu`)
