@@ -23,6 +23,7 @@ class ModelEntry(BaseModel):
     postprocess_fn: str = "default_genai"
     max_tokens: int = 2048
     context_length: int = 4096
+    max_prompt_len: int = 1024
     image_size: int | None = None
     lora_adapters: list[str] | None = None
 

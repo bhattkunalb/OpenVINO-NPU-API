@@ -19,7 +19,10 @@ def build_prompt_from_messages(messages: list[dict[str, Any]]) -> str:
         content = msg.get("content", "")
         parts.append(f"<|im_start|>{role}\n{content}<|im_end|>")
     parts.append("<|im_start|>assistant\n")
-    return "\n".join(parts)
+    prompt = "\n".join(parts)
+    import logging
+    logging.getLogger(__name__).info("🔍 PROMPT: len=%d chars", len(prompt))
+    return prompt
 
 
 def truncate_to_context(text: str, max_chars: int) -> str:

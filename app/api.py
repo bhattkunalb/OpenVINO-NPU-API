@@ -7,7 +7,7 @@ import logging
 import time
 from typing import AsyncGenerator
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
 from app import postprocess, utils
@@ -80,16 +80,76 @@ async def _infer(model: str, msg_dicts: list[dict], body: object) -> tuple:
     text, hit, load_ms, infer_ms, cached = await asyncio.to_thread(_run)
     total_ms = (time.perf_counter() - t0) * 1000
     mgr.record_inference(model, infer_ms)
-    return text, hit, load_ms, infer_ms, total_ms, cached
+
+    # Safeguard: Never return an empty string to avoid client-side parser errors
+    final_text = text if text.strip() else " "
+    log.info("🔍 RESPONSE: [%s...] (len=%d)", final_text[:50].replace("\n", " "), len(final_text))
+
+    return final_text, hit, load_ms, infer_ms, total_ms, cached
 
 
 # /v1/chat/completions
 
+def _flatten_messages(messages: list[dict]):
+    """Flatten multi-modal content arrays into text strings for OpenClaw compatibility."""
+    for msg in messages:
+        content = msg.get("content")
+        if isinstance(content, list):
+            text_parts = [
+                item.get("text", "") for item in content
+                if isinstance(item, dict) and item.get("type") == "text"
+            ]
+            msg["content"] = " ".join(text_parts).strip()
+
+
+def _normalize_chat_request(request_body: dict) -> dict:
+    """Normalize OpenAI-compatible requests from various clients (OpenClaw, etc.)"""
+    messages = request_body.get("messages") or [{"role": "user", "content": "Hello"}]
+    _flatten_messages(messages)
+    request_body["messages"] = messages
+
+    max_tok = request_body.get("max_tokens")
+    if max_tok is not None and not isinstance(max_tok, int):
+        try:
+            request_body["max_tokens"] = int(max_tok)
+        except (ValueError, TypeError):
+            request_body["max_tokens"] = 100
+
+    model = request_body.get("model")
+    if isinstance(model, str) and "/" in model:
+        request_body["model"] = model.split("/")[-1]
+
+    for field in ["stream_options", "response_format", "tools", "tool_choice"]:
+        request_body.pop(field, None)
+
+    # Restore streaming support if the client requested it
+    return request_body
+
+
 @router.post("/v1/chat/completions", tags=["inference"], responses=_ERR, response_model=None)
 async def chat_completions(
-    body: ChatCompletionRequest
+    request: Request
 ) -> ChatCompletionResponse | StreamingResponse:
     """OpenAI-compatible chat completions with optional SSE streaming."""
+    # === DEBUG: Log incoming request ===
+    try:
+        raw_body = await request.json()
+    except Exception as e:  # pylint: disable=broad-except
+        log.warning("Failed to parse JSON from client: %s", e)
+        raw_body = {}
+    # ===================================
+
+    normalized_dict = _normalize_chat_request(raw_body)
+    try:
+        body = ChatCompletionRequest(**normalized_dict)
+    except Exception as e:  # pylint: disable=broad-except
+        log.error("Validation error: %s", e)
+        raise HTTPException(422, str(e)) from e
+
+    msg_count = len(body.messages) if body.messages else 0
+    log.info("🔍 OPENCLAW: model=%s, stream=%s, msgs=%d", body.model, body.stream, msg_count)
+    log.info("🔍 RAW BODY: %s...", str(raw_body)[:500])
+
     _require_gen(body.model)
     req_id = utils.new_request_id()
     if body.stream:

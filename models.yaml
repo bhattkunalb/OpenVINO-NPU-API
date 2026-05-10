@@ -12,7 +12,7 @@ models:
   # ✅ Qwen 2.5 1.5B - Balanced speed/quality (RECOMMENDED STARTING POINT)
   # Download: python scripts/download_prebuilt.py qwen2.5-1.5b
   - name: qwen2.5-1.5b-npu
-    path: ./models/qwen2.5-1.5b-npu
+    path: C:/ov-npu/models/qwen2.5-1.5b-npu-ready
     task: chat
     input_type: text
     device: NPU
@@ -20,6 +20,7 @@ models:
     postprocess_fn: default_genai
     max_tokens: 1024
     context_length: 32768
+    max_prompt_len: 8192
 
   # ⏸️ Qwen 2.5 3B - Larger model for complex reasoning
   # Download: python scripts/download_prebuilt.py qwen2.5-3b

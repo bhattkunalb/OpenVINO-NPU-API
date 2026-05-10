@@ -92,12 +92,23 @@ class ModelManager:
 
     def _load_and_warm(self, entry: ModelEntry) -> CachedModel:
         """Compile and warm up a model on its target device."""
-        log.info("[%s] Compiling on %s  path=%s", entry.name, entry.device, entry.path)
+        # Sanitize path (strip literal quotes if any)
+        model_path = entry.path.strip("'\"")
+        if not Path(model_path).exists():
+            raise FileNotFoundError(
+                f"[{entry.name}] Model path not found: {model_path}. "
+                "Please check models.yaml or run download script."
+            )
+
+        log.info("[%s] Compiling on %s  path=%s prompt_len=%d", 
+                 entry.name, entry.device, model_path, entry.max_prompt_len)
         t0 = time.perf_counter()
         if entry.task == "embedding":
-            pipeline = self._load_embedding(entry.path, entry.device)
+            pipeline = self._load_embedding(model_path, entry.device)
         else:
-            pipeline = ov_genai.LLMPipeline(entry.path, entry.device)
+            # Pass properties to LLMPipeline (MAX_PROMPT_LEN is critical for NPU)
+            props = {"MAX_PROMPT_LEN": entry.max_prompt_len}
+            pipeline = ov_genai.LLMPipeline(model_path, entry.device, **props)
         load_ms = (time.perf_counter() - t0) * 1000
         log.info("[%s] Compiled in %.1f ms. Warming up…", entry.name, load_ms)
         self._warmup(pipeline, entry)

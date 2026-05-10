@@ -56,9 +56,11 @@ python -m uvicorn app.main:app --host 0.0.0.0 --port 4647 --workers 1
 
 ```text
 INFO: app.main | NPU confirmed: 'NPU'
-INFO: app.model_manager | [qwen2.5-1.5b-npu] Compiling on NPU...
+INFO: app.model_manager | [qwen2.5-1.5b-npu] Compiling on NPU (8k context)...
 INFO: Uvicorn running on http://0.0.0.0:4647
 ```
+
+> 💡 **Tip:** First-time compilation for a large context (8192 tokens) can take **~90 seconds**. Set your client timeouts accordingly.
 
 ### Step 4: Test Inference (New PowerShell Window)
 
@@ -184,9 +186,45 @@ python scripts/download_prebuilt.py qwen2.5-1.5b
 - Try a smaller model (`llama-3.2-1b-npu`)
 - Ensure no other NPU processes are running
 
-### PowerShell `curl` alias issues
+### Response is missing spaces (merged words)
 
-**Fix:** Use `curl.exe` (with `.exe`) or `Invoke-RestMethod` as shown in testing examples.
+**Cause:** Aggressive whitespace stripping in the post-processor (fixed in v1.0.1).
+
+**Fix:** Update to the latest version of `app/postprocess.py`. The system now preserves intentional whitespace between tokens while still stripping hidden chat delimiters.
+
+### Response is taking longer than expected (OpenClaw)
+
+**Cause:** NPU compilation delay for large contexts (8192 tokens) exceeds the default client timeout.
+
+**Fix:** Increase the timeout in your client. For OpenClaw, edit `~/.openclaw/openclaw.json` and set `"timeoutSeconds": 120`.
+
+---
+
+## 🤖 Integration: OpenClaw
+
+To use this API with the **OpenClaw** agent:
+
+1. **Alignment**: Ensure the `contextWindow` in `openclaw.json` matches the `max_prompt_len` in your `models.yaml` (default: 8192).
+2. **Model ID**: Use the full ID `custom-localhost-4647/qwen2.5-1.5b-npu`.
+3. **Timeout**: Increase `timeoutSeconds` to `120` to allow for NPU compilation on the first request.
+
+Example `openclaw.json` snippet:
+
+```json
+{
+  "agents": {
+    "defaults": {
+      "models": {
+        "custom-localhost-4647/qwen2.5-1.5b-npu": {
+          "alias": "NPU-Local",
+          "contextWindow": 8192,
+          "timeoutSeconds": 120
+        }
+      }
+    }
+  }
+}
+```
 
 ---
 

@@ -12,18 +12,14 @@ Thank you for your interest in improving this project! Since this repository tar
   pip install -r requirements.txt
   ```
 
-## 📦 Exporting Models
+## 📦 Adding New Models
 
-All models must be compatible with `openvino_genai.LLMPipeline`.
+We prioritize stability by using pre-built OpenVINO models. To contribute a new model:
 
-1. **Always use stateful models**: Use the `--task text-generation-with-past` flag.
-2. **Preferred Export**: Use the provided helper script:
-
-   ```bash
-   python scripts/export_genai.py <model_id> <output_dir>
-   ```
-
-3. **Verification**: Always verify that `beam_idx` is present in the `openvino_model.xml` file.
+1. **Verify Source**: Ensure the model is available on Hugging Face in OpenVINO format (preferably in a collection like [llms-optimized-for-npu](https://huggingface.co/collections/OpenVINO/llms-optimized-for-npu)).
+2. **Update download_prebuilt.py**: Add the new model ID and alias to the mapping in `scripts/download_prebuilt.py`.
+3. **Registry Entry**: Add a commented-out template for the model in `models.yaml`.
+4. **Test Alignment**: Verify that the model's `context_length` and `max_prompt_len` are correctly documented.
 
 ## 🧪 Testing
 

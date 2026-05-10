@@ -11,11 +11,11 @@ def strip_prompt_echo(generated: str, prompt: str) -> str:
 
 
 def clean_generation(text: str) -> str:
-    """Strip chat delimiters and extra whitespace from model output."""
-    t = text.strip()
+    """Strip chat delimiters while preserving intentional whitespace."""
+    t = text
     for d in ["<|im_start|>", "<|im_end|>", "</s>", "<s>", "[INST]", "[/INST]"] + _EOS_TOKENS:
         t = t.replace(d, "")
-    return t.strip()
+    return t
 
 
 def enforce_stop_strings(text: str, stop: list[str]) -> str:
